@@ -14,12 +14,16 @@ enum SelfHelpState
 };
 
 ConVar shEnable, shUse, shIncapPickup, shDelay, shKillAttacker, shBot, shBotChance, shHardHP,
-	shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration;
+        shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration,
+        shStruggleMode, shStruggleGain, shStrugglePushback, shStruggleEscapeEffect;
 
 bool bIsL4D, bEnabled, bIncapPickup, bKillAttacker, bBot;
-float fAdrenalineDuration, fDelay, fTempHP, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1];
+float fAdrenalineDuration, fDelay, fTempHP, fStruggleGain, fStrugglePushback, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1],
+        fStruggleProgress[MAXPLAYERS+1], fLastStruggleInput[MAXPLAYERS+1], fLastStruggleAlert[MAXPLAYERS+1];
 int iSurvivorClass, iKillAttacker, iUse, iBotChance, iHardHP, iMaxCount, iAttacker[MAXPLAYERS+1],
-	iBotHelp[MAXPLAYERS+1], iReviveDuration, iMaxIncapCount, iSHCount[MAXPLAYERS+1];
+        iBotHelp[MAXPLAYERS+1], iReviveDuration, iMaxIncapCount, iSHCount[MAXPLAYERS+1], iStruggleMode,
+        iStruggleEscapeEffect;
+bool bWasCrouching[MAXPLAYERS+1], bAttackerWasSprinting[MAXPLAYERS+1];
 
 Handle hSHTime[MAXPLAYERS+1] = null, hSHGameData = null, hSHSetTempHP = null, hSHAdrenalineRush = null,
 	hSHOnRevived = null, hSHStagger = null;
@@ -134,11 +138,15 @@ public void OnPluginStart()
 	shEnable = CreateConVar("self_help_enable", "1", "Enable/Disable Plugin", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
 	shUse = CreateConVar("self_help_use", "3", "Use: 0=None, 1=Pills And Adrenalines, 2=First Aid Kits Only, 3=Both", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 3.0);
 	shIncapPickup = CreateConVar("self_help_incap_pickup", "1", "Enable/Disable Item Pick-Ups While Incapacitated", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-	shDelay = CreateConVar("self_help_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
-	shKillAttacker = CreateConVar("self_help_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-	shBot = CreateConVar("self_help_bot", "1", "Enable/Disable Bot Self-Help", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-	shBotChance = CreateConVar("self_help_bot_chance", "4", "Chance Of Bot Self-Helping: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
-	shHardHP = CreateConVar("self_help_hard_hp", "50", "Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+        shDelay = CreateConVar("self_help_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
+        shKillAttacker = CreateConVar("self_help_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shStruggleMode = CreateConVar("self_help_struggle_mode", "2", "Pinned behavior: 0=disabled, 1=hold crouch to self-help, 2=mash crouch to struggle", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shStruggleGain = CreateConVar("self_help_struggle_gain", "5.0", "Percent gained per crouch press while struggling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
+        shStrugglePushback = CreateConVar("self_help_struggle_pushback", "2.5", "Percent lost per attacker sprint press", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
+        shStruggleEscapeEffect = CreateConVar("self_help_struggle_effect", "0", "On struggle escape: 0=nothing extra, 1=kill attacker, 2=knock both back", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shBot = CreateConVar("self_help_bot", "1", "Enable/Disable Bot Self-Help", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+        shBotChance = CreateConVar("self_help_bot_chance", "4", "Chance Of Bot Self-Helping: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
+        shHardHP = CreateConVar("self_help_hard_hp", "50", "Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
 	shTempHP = CreateConVar("self_help_temp_hp", "50.0", "Temporary Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
 	
 	if (bIsL4D)
@@ -148,30 +156,36 @@ public void OnPluginStart()
 		shMaxCount.AddChangeHook(OnSHCVarsChanged);
 	}
 	
-	iUse = shUse.IntValue;
-	iBotChance = shBotChance.IntValue;
-	iHardHP = shHardHP.IntValue;
-	
-	bEnabled = shEnable.BoolValue;
-	bIncapPickup = shIncapPickup.BoolValue;
-	bKillAttacker = shKillAttacker.BoolValue;
-	iKillAttacker = shKillAttacker.IntValue;
+        iUse = shUse.IntValue;
+        iBotChance = shBotChance.IntValue;
+        iHardHP = shHardHP.IntValue;
+        iStruggleMode = shStruggleMode.IntValue;
+        iStruggleEscapeEffect = shStruggleEscapeEffect.IntValue;
+
+        bEnabled = shEnable.BoolValue;
+        bIncapPickup = shIncapPickup.BoolValue;
+        bKillAttacker = shKillAttacker.BoolValue;
+        iKillAttacker = shKillAttacker.IntValue;
 
 	bBot = shBot.BoolValue;
 	
 	fDelay = shDelay.FloatValue;
 	fTempHP = shTempHP.FloatValue;
 	
-	shEnable.AddChangeHook(OnSHCVarsChanged);
-	shUse.AddChangeHook(OnSHCVarsChanged);
-	shIncapPickup.AddChangeHook(OnSHCVarsChanged);
-	shDelay.AddChangeHook(OnSHCVarsChanged);
-	shKillAttacker.AddChangeHook(OnSHCVarsChanged);
+        shEnable.AddChangeHook(OnSHCVarsChanged);
+        shUse.AddChangeHook(OnSHCVarsChanged);
+        shIncapPickup.AddChangeHook(OnSHCVarsChanged);
+        shDelay.AddChangeHook(OnSHCVarsChanged);
+        shKillAttacker.AddChangeHook(OnSHCVarsChanged);
+        shStruggleMode.AddChangeHook(OnSHCVarsChanged);
+        shStruggleGain.AddChangeHook(OnSHCVarsChanged);
+        shStrugglePushback.AddChangeHook(OnSHCVarsChanged);
+        shStruggleEscapeEffect.AddChangeHook(OnSHCVarsChanged);
 
-	shBot.AddChangeHook(OnSHCVarsChanged);
-	shBotChance.AddChangeHook(OnSHCVarsChanged);
-	shHardHP.AddChangeHook(OnSHCVarsChanged);
-	shTempHP.AddChangeHook(OnSHCVarsChanged);
+        shBot.AddChangeHook(OnSHCVarsChanged);
+        shBotChance.AddChangeHook(OnSHCVarsChanged);
+        shHardHP.AddChangeHook(OnSHCVarsChanged);
+        shTempHP.AddChangeHook(OnSHCVarsChanged);
 	
 	AutoExecConfig(true, "self_help");
 	
@@ -224,24 +238,28 @@ public void OnSHCVarsChanged(ConVar cvar, const char[] sOldValue, const char[] s
 	
 	iReviveDuration = cvarReviveDuration.IntValue;
 	
-	iUse = shUse.IntValue;
-	iBotChance = shBotChance.IntValue;
-	iHardHP = shHardHP.IntValue;
-	
-	bEnabled = shEnable.BoolValue;
-	bIncapPickup = shIncapPickup.BoolValue;
-	bKillAttacker = shKillAttacker.BoolValue;
-	iKillAttacker = shKillAttacker.IntValue;
+        iUse = shUse.IntValue;
+        iBotChance = shBotChance.IntValue;
+        iHardHP = shHardHP.IntValue;
+        iStruggleMode = shStruggleMode.IntValue;
+        iStruggleEscapeEffect = shStruggleEscapeEffect.IntValue;
 
-	bBot = shBot.BoolValue;
-	
-	fDelay = shDelay.FloatValue;
-	fTempHP = shTempHP.FloatValue;
-	
-	if (bIsL4D)
-	{
-		iMaxCount = shMaxCount.IntValue;
-	}
+        bEnabled = shEnable.BoolValue;
+        bIncapPickup = shIncapPickup.BoolValue;
+        bKillAttacker = shKillAttacker.BoolValue;
+        iKillAttacker = shKillAttacker.IntValue;
+
+        bBot = shBot.BoolValue;
+
+        fDelay = shDelay.FloatValue;
+        fTempHP = shTempHP.FloatValue;
+        fStruggleGain = shStruggleGain.FloatValue;
+        fStrugglePushback = shStrugglePushback.FloatValue;
+
+        if (bIsL4D)
+        {
+                iMaxCount = shMaxCount.IntValue;
+        }
 }
 
 public Action OnSHSoundsFix(int clients[MAXPLAYERS], int &numClients, char sample[PLATFORM_MAX_PATH], int &entity, int &channel, float &volume, int &level, int &pitch, int &flags, char soundEntry[PLATFORM_MAX_PATH], int &seed)
@@ -322,10 +340,16 @@ public void OnRoundEvents(Event event, const char[] name, bool dontBroadcast)
 	{
 		if (IsClientInGame(i))
 		{
-			shsBit[i] = SHS_NONE;
-			
-			iAttacker[i] = 0;
-			iBotHelp[i] = 0;
+                        shsBit[i] = SHS_NONE;
+
+                        iAttacker[i] = 0;
+                        iBotHelp[i] = 0;
+                        fStruggleProgress[i] = 0.0;
+                        fLastStruggleInput[i] = 0.0;
+                        fLastStruggleAlert[i] = 0.0;
+                        bWasCrouching[i] = false;
+                        bAttackerWasSprinting[i] = false;
+                        ClearStruggleBar(i);
 			
 			if (bIsL4D)
 			{
@@ -357,11 +381,11 @@ public void OnPlayerDown(Event event, const char[] name, bool dontBroadcast)
 			return;
 		}
 		
-		CreateTimer(fDelay, FireUpMechanism, GetClientUserId(wounded));
+                CreateTimer(fDelay, FireUpMechanism, GetClientUserId(wounded));
 
-		if (StrEqual(name, "player_incapacitated"))
-		{
-			PrintHintText(wounded, "Hold R To Revive Other Incapacitated Survivors!");
+                if (StrEqual(name, "player_incapacitated"))
+                {
+                        PrintHintText(wounded, "Hold R to revive allies!");
 			
 			if (bIsL4D)
 			{
@@ -380,7 +404,7 @@ public void OnPlayerDown(Event event, const char[] name, bool dontBroadcast)
 							continue;
 						}
 						
-						PrintHintText(i, "\n%N Will Be In B/W State After Revive/Self-Help!", wounded);
+                                                PrintHintText(i, "%N will be black/white after revive!", wounded);
 					}
 				}
 			}
@@ -402,7 +426,7 @@ public void OnPlayerDown(Event event, const char[] name, bool dontBroadcast)
 							continue;
 						}
 						
-						PrintHintText(i, "\n%N Will Be In B/W State After Revive/Self-Help!", wounded);
+                                                PrintHintText(i, "%N will be black/white after revive!", wounded);
 					}
 				}
 			}
@@ -421,13 +445,17 @@ public Action FireUpMechanism(Handle timer, any userid)
 	shsBit[client] = SHS_NONE;
 	if (hSHTime[client] == null)
 	{
-		if (!GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && !GetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1))
-		{
-			if (iAttacker[client] == 0 || (iAttacker[client] != 0 && (!IsClientInGame(iAttacker[client]) || !IsPlayerAlive(iAttacker[client]))))
-			{
-				return Plugin_Stop;
-			}
-		}
+                if (!GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && !GetEntProp(client, Prop_Send, "m_isHangingFromLedge", 1))
+                {
+                        if (iAttacker[client] == 0 || (iAttacker[client] != 0 && (!IsClientInGame(iAttacker[client]) || !IsPlayerAlive(iAttacker[client]))))
+                        {
+                                return Plugin_Stop;
+                        }
+                        else if (iStruggleMode == 0)
+                        {
+                                return Plugin_Stop;
+                        }
+                }
 		
 		if (GetEntProp(client, Prop_Send, "m_reviveOwner") > 0 && GetEntProp(client, Prop_Send, "m_reviveOwner") != client)
 		{
@@ -441,10 +469,10 @@ public Action FireUpMechanism(Handle timer, any userid)
 		
 		fSelfHelpTime[client] = 0.0;
 		
-		if (IsSelfHelpAble(client) && !IsFakeClient(client))
-		{
-			CPrintToChat(client, "Press {green}CROUCH{default} To Self-Help!");
-		}
+                if (IsSelfHelpAble(client) && !IsFakeClient(client))
+                {
+                        ShowSelfHelpHint(client);
+                }
 		hSHTime[client] = CreateTimer(0.1, AnalyzePlayerState, GetClientUserId(client), TIMER_REPEAT);
 	}
 	
@@ -504,7 +532,7 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 				shsBit[client] = SHS_START_SELF;
 				if (!IsFakeClient(client))
 				{
-					strcopy(sSHMessage, sizeof(sSHMessage), "REVIVING YOURSELF");
+                                        strcopy(sSHMessage, sizeof(sSHMessage), "REVIVING YOURSELF");
 					DisplaySHProgressBar(client, client, iReviveDuration, sSHMessage, true);
 					
 					if (!bIsL4D)
@@ -562,27 +590,27 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 			if (shsBit[client] == SHS_NONE || shsBit[client] == SHS_CONTINUE)
 			{
 				shsBit[client] = SHS_START_OTHER;
-				if (!IsFakeClient(client))
-				{
-					strcopy(sSHMessage, sizeof(sSHMessage), "HELPING TEAMMATE");
-					DisplaySHProgressBar(client, iTarget, iReviveDuration, sSHMessage, true);
-					
-					if (!bIsL4D)
-					{
-						PrintHintText(client, "You Are Helping %N!", iTarget);
-					}
-				}
-				
-				if (!IsFakeClient(iTarget))
-				{
-					Format(sSHMessage, sizeof(sSHMessage), "BEING HELPED");
-					DisplaySHProgressBar(iTarget, client, iReviveDuration, sSHMessage);
-					
-					if (!bIsL4D)
-					{
-						PrintHintText(iTarget, "%N Is Helping You!", client);
-					}
-				}
+                                if (!IsFakeClient(client))
+                                {
+                                        Format(sSHMessage, sizeof(sSHMessage), "REVIVING %N", iTarget);
+                                        DisplaySHProgressBar(client, iTarget, iReviveDuration, sSHMessage, true);
+
+                                        if (!bIsL4D)
+                                        {
+                                                PrintHintText(client, "Reviving %N", iTarget);
+                                        }
+                                }
+
+                                if (!IsFakeClient(iTarget))
+                                {
+                                        Format(sSHMessage, sizeof(sSHMessage), "%N IS REVIVING YOU", client);
+                                        DisplaySHProgressBar(iTarget, client, iReviveDuration, sSHMessage);
+
+                                        if (!bIsL4D)
+                                        {
+                                                PrintHintText(iTarget, "%N is reviving you", client);
+                                        }
+                                }
 				
 				DataPack dpSHReviveOther = new DataPack();
 				dpSHReviveOther.WriteCell(GetClientUserId(client));
@@ -1125,13 +1153,20 @@ public void OnInfectedGrab(Event event, const char[] name, bool dontBroadcast)
 	int grabber = GetClientOfUserId(event.GetInt("userid")),
 		grabbed = GetClientOfUserId(event.GetInt("victim"));
 	
-	if (grabber && IsSurvivor(grabbed))
-	{
-		iAttacker[grabbed] = grabber;
-		if (iKillAttacker != 2) {
-			CreateTimer(fDelay, FireUpMechanism, GetClientUserId(grabbed));
-		}
-	}
+        if (grabber && IsSurvivor(grabbed))
+        {
+                iAttacker[grabbed] = grabber;
+                fStruggleProgress[grabbed] = 0.0;
+                fLastStruggleInput[grabbed] = GetGameTime();
+                if (iStruggleMode == 2 && !IsFakeClient(grabbed))
+                {
+                        PrintHintText(grabbed, "Mash CROUCH to break free!");
+                }
+                ClearStruggleBar(grabbed);
+                if (iKillAttacker != 2) {
+                        CreateTimer(fDelay, FireUpMechanism, GetClientUserId(grabbed));
+                }
+        }
 }
 
 public void OnInfectedRelease(Event event, const char[] name, bool dontBroadcast)
@@ -1142,17 +1177,21 @@ public void OnInfectedRelease(Event event, const char[] name, bool dontBroadcast
 	}
 	
 	int released = GetClientOfUserId(event.GetInt("victim"));
-	if (IsSurvivor(released))
-	{
-		if (bBot && IsFakeClient(released) && iBotHelp[released] == 1)
-		{
-			iBotHelp[released] = 0;
-		}
-		
-		if (StrEqual(name, "pounce_stopped"))
-		{
-			iAttacker[released] = 0;
-		}
+        if (IsSurvivor(released))
+        {
+                if (bBot && IsFakeClient(released) && iBotHelp[released] == 1)
+                {
+                        iBotHelp[released] = 0;
+                }
+
+                ClearStruggleBar(released);
+                fStruggleProgress[released] = 0.0;
+                bWasCrouching[released] = false;
+
+                if (StrEqual(name, "pounce_stopped"))
+                {
+                        iAttacker[released] = 0;
+                }
 		else
 		{
 			int releaser = GetClientOfUserId(event.GetInt("userid"));
@@ -1229,78 +1268,257 @@ public Action DelaySHNotify(Handle timer, Handle dpDefibAnnounce)
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
 {
-	if (!bEnabled || !bBot)
-	{
-		return Plugin_Continue;
-	}
-	
-	if (IsSurvivor(client))
-	{
-		if (!IsPlayerAlive(client) || !IsFakeClient(client) || iBotHelp[client] == 0)
-		{
-			return Plugin_Continue;
-		}
-		
-		if (GetEntProp(client, Prop_Send, "m_isIncapacitated", 1))
-		{
-			int iTarget = 0;
-			float fPlayerPos[2][3];
-			
-			GetEntPropVector(client, Prop_Send, "m_vecOrigin", fPlayerPos[0]);
-			for (int i = 1; i <= MaxClients; i++)
-			{
-				if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i) || i == client || iAttacker[i] != 0)
-				{
-					continue;
-				}
-				
-				if (GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_reviveOwner") < 1)
-				{
-					GetEntPropVector(i, Prop_Send, "m_vecOrigin", fPlayerPos[1]);
-					
-					if (GetVectorDistance(fPlayerPos[0], fPlayerPos[1]) > 100.0)
-					{
-						continue;
-					}
-					
-					iTarget = i;
-					break;
-				}
-			}
-			if (IsSurvivor(iTarget) && IsPlayerAlive(iTarget) && GetEntProp(iTarget, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(iTarget, Prop_Send, "m_reviveOwner") < 1)
-			{
-				buttons |= IN_RELOAD;
-			}
-			else
-			{
-				if (buttons & IN_RELOAD)
-				{
-					buttons ^= IN_RELOAD;
-				}
-				
-				if (IsSelfHelpAble(client))
-				{
-					buttons |= IN_DUCK;
-				}
-			}
-		}
-		else if (iAttacker[client] != 0)
-		{
-			if (!IsSelfHelpAble(client))
-			{
-				return Plugin_Continue;
-			}
-			
-			buttons |= IN_DUCK;
-		}
-	}
-	
-	return Plugin_Continue;
+        if (!bEnabled)
+        {
+                return Plugin_Continue;
+        }
+
+        HandleStruggle(client, buttons);
+
+        if (!bBot)
+        {
+                return Plugin_Continue;
+        }
+
+        if (IsSurvivor(client))
+        {
+                if (!IsPlayerAlive(client) || !IsFakeClient(client) || iBotHelp[client] == 0)
+                {
+                        return Plugin_Continue;
+                }
+
+                if (GetEntProp(client, Prop_Send, "m_isIncapacitated", 1))
+                {
+                        int iTarget = 0;
+                        float fPlayerPos[2][3];
+
+                        GetEntPropVector(client, Prop_Send, "m_vecOrigin", fPlayerPos[0]);
+                        for (int i = 1; i <= MaxClients; i++)
+                        {
+                                if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i) || i == client || iAttacker[i] != 0)
+                                {
+                                        continue;
+                                }
+
+                                if (GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_reviveOwner") < 1)
+                                {
+                                        GetEntPropVector(i, Prop_Send, "m_vecOrigin", fPlayerPos[1]);
+
+                                        if (GetVectorDistance(fPlayerPos[0], fPlayerPos[1]) > 100.0)
+                                        {
+                                                continue;
+                                        }
+
+                                        iTarget = i;
+                                        break;
+                                }
+                        }
+                        if (IsSurvivor(iTarget) && IsPlayerAlive(iTarget) && GetEntProp(iTarget, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(iTarget, Prop_Send, "m_reviveOwner") < 1)
+                        {
+                                buttons |= IN_RELOAD;
+                        }
+                        else
+                        {
+                                if (buttons & IN_RELOAD)
+                                {
+                                        buttons ^= IN_RELOAD;
+                                }
+
+                                if (IsSelfHelpAble(client))
+                                {
+                                        buttons |= IN_DUCK;
+                                }
+                        }
+                }
+                else if (iAttacker[client] != 0)
+                {
+                        if (!IsSelfHelpAble(client))
+                        {
+                                return Plugin_Continue;
+                        }
+
+                        buttons |= IN_DUCK;
+                }
+        }
+
+        return Plugin_Continue;
+}
+
+void HandleStruggle(int client, int &buttons)
+{
+        if (!IsValidClient(client) || !IsPlayerAlive(client) || iStruggleMode == 0)
+        {
+                return;
+        }
+
+        float fGameTime = GetGameTime();
+
+        if (IsSurvivor(client))
+        {
+                        int dominator = iAttacker[client];
+                        if (dominator == 0 || !IsValidClient(dominator) || GetClientTeam(dominator) != 3 || !IsPlayerAlive(dominator))
+                        {
+                                if (fStruggleProgress[client] > 0.0)
+                                {
+                                        ClearStruggleBar(client);
+                                }
+                                fStruggleProgress[client] = 0.0;
+                                bWasCrouching[client] = false;
+                                return;
+                        }
+
+                        if (iStruggleMode != 2)
+                        {
+                                return;
+                        }
+
+                        if (fGameTime - fLastStruggleInput[client] > 1.0 && fStruggleProgress[client] > 0.0)
+                        {
+                                fStruggleProgress[client] = 0.0;
+                                ClearStruggleBar(client);
+                        }
+
+                        bool bPressed = (buttons & IN_DUCK) && !bWasCrouching[client];
+                        bWasCrouching[client] = ((buttons & IN_DUCK) != 0);
+
+                        if (bPressed)
+                        {
+                                fLastStruggleInput[client] = fGameTime;
+                                fStruggleProgress[client] += fStruggleGain;
+                                if (fStruggleProgress[client] > 100.0)
+                                {
+                                        fStruggleProgress[client] = 100.0;
+                                }
+
+                                UpdateStruggleBar(client);
+                                PrintHintText(client, "Mash CROUCH to break free!");
+                                AlertAttacker(dominator, client, fGameTime);
+
+                                if (fStruggleProgress[client] >= 100.0)
+                                {
+                                        HandleStruggleEscape(client, dominator);
+                                }
+                        }
+        }
+        else if (GetClientTeam(client) == 3)
+        {
+                        int grabbed = GetStruggleVictim(client);
+                        if (grabbed == 0 || fStruggleProgress[grabbed] <= 0.0 || iStruggleMode != 2)
+                        {
+                                bAttackerWasSprinting[client] = false;
+                                return;
+                        }
+
+                        bool bPressed = (buttons & IN_SPEED) && !bAttackerWasSprinting[client];
+                        bAttackerWasSprinting[client] = ((buttons & IN_SPEED) != 0);
+
+                        if (bPressed)
+                        {
+                                fStruggleProgress[grabbed] -= fStrugglePushback;
+                                if (fStruggleProgress[grabbed] < 0.0)
+                                {
+                                        fStruggleProgress[grabbed] = 0.0;
+                                }
+
+                                UpdateStruggleBar(grabbed);
+                        }
+        }
+}
+
+void AlertAttacker(int attacker, int client, float fGameTime)
+{
+        if (!IsValidClient(attacker) || GetClientTeam(attacker) != 3 || IsFakeClient(attacker))
+        {
+                return;
+        }
+
+        if (fGameTime - fLastStruggleAlert[attacker] < 1.0)
+        {
+                return;
+        }
+
+        fLastStruggleAlert[attacker] = fGameTime;
+        PrintHintText(attacker, "%N is breaking free, hit SHIFT!", client);
+}
+
+int GetStruggleVictim(int attacker)
+{
+        for (int i = 1; i <= MaxClients; i++)
+        {
+                if (!IsSurvivor(i) || !IsPlayerAlive(i))
+                {
+                        continue;
+                }
+
+                if (iAttacker[i] == attacker)
+                {
+                        return i;
+                }
+        }
+
+        return 0;
+}
+
+void UpdateStruggleBar(int client)
+{
+        if (!IsValidClient(client) || IsFakeClient(client))
+        {
+                return;
+        }
+
+        float fDuration = 10.0;
+        float fStart = GetGameTime() - (fStruggleProgress[client] / 100.0 * fDuration);
+
+        SetEntProp(client, Prop_Send, "m_reviveTarget", client);
+        SetEntPropFloat(client, Prop_Send, "m_flProgressBarStartTime", fStart);
+        if (bIsL4D)
+        {
+                SetEntProp(client, Prop_Send, "m_iProgressBarDuration", RoundToNearest(fDuration));
+                SetEntPropString(client, Prop_Send, "m_progressBarText", "BREAK FREE");
+        }
+        else
+        {
+                SetEntPropFloat(client, Prop_Send, "m_flProgressBarDuration", fDuration);
+        }
+}
+
+void ClearStruggleBar(int client)
+{
+        if (!IsValidClient(client) || IsFakeClient(client))
+        {
+                return;
+        }
+
+        SetEntProp(client, Prop_Send, "m_reviveTarget", -1);
+        SetEntPropFloat(client, Prop_Send, "m_flProgressBarStartTime", GetGameTime());
+        if (!bIsL4D)
+        {
+                SetEntPropFloat(client, Prop_Send, "m_flProgressBarDuration", 0.0);
+        }
+        else
+        {
+                SetEntProp(client, Prop_Send, "m_iProgressBarDuration", 0);
+                SetEntPropString(client, Prop_Send, "m_progressBarText", "");
+        }
+}
+
+void HandleStruggleEscape(int client, int dominator)
+{
+        ClearStruggleBar(client);
+        fStruggleProgress[client] = 0.0;
+        bWasCrouching[client] = false;
+
+        RemoveHindrance(client, true);
+
+        if (IsValidClient(dominator) && GetClientTeam(dominator) == 3 && IsPlayerAlive(dominator))
+        {
+                SDKCall(hSHStagger, dominator, client, fLastPos[client]);
+        }
 }
 
 bool IsSelfHelpAble(int client)
 {
-	bool bHasPA = CheckPlayerSupply(client, 4), bHasMedkit = CheckPlayerSupply(client, 3);
+        bool bHasPA = CheckPlayerSupply(client, 4), bHasMedkit = CheckPlayerSupply(client, 3);
 	
 	if ((iUse == 1 || iUse == 3) && bHasPA)
 	{
@@ -1311,7 +1529,45 @@ bool IsSelfHelpAble(int client)
 		return true;
 	}
 	
-	return false;
+        return false;
+}
+
+void ShowSelfHelpHint(int client)
+{
+        int iSlotItem;
+        char sSlotName[64];
+        bool bHasPA = CheckPlayerSupply(client, 4, iSlotItem, sSlotName);
+        bool bHasMedkit = CheckPlayerSupply(client, 3);
+
+        char sItemText[48];
+        bool bHasAdrenaline = (!bIsL4D && bHasPA && StrEqual(sSlotName, "weapon_adrenaline", false));
+
+        if (bHasMedkit && bHasAdrenaline)
+        {
+                strcopy(sItemText, sizeof(sItemText), "medkit/adrenaline");
+        }
+        else if (bHasMedkit && bHasPA)
+        {
+                strcopy(sItemText, sizeof(sItemText), "medkit/pills");
+        }
+        else if (bHasMedkit)
+        {
+                strcopy(sItemText, sizeof(sItemText), "medkit");
+        }
+        else if (bHasAdrenaline)
+        {
+                strcopy(sItemText, sizeof(sItemText), "adrenaline");
+        }
+        else if (bHasPA)
+        {
+                strcopy(sItemText, sizeof(sItemText), "pills");
+        }
+        else
+        {
+                strcopy(sItemText, sizeof(sItemText), "gear");
+        }
+
+        PrintHintText(client, "You have %s, hold CROUCH to revive!", sItemText);
 }
 
 bool CheckPlayerSupply(int client, int iSlot, int &iItem = 0, char sItemName[64] = "")
@@ -1646,15 +1902,19 @@ void UnloopAnnoyingMusic(int client, const char[] sGivenSound)
 	StopSound(client, SNDCHAN_USER_BASE, sGivenSound);
 }
 
-void RemoveHindrance(int client)
+void RemoveHindrance(int client, bool bFromStruggle = false)
 {
-	int dominator = iAttacker[client];
-	iAttacker[client] = 0;
-	
-	if (dominator != 0 && IsClientInGame(dominator) && GetClientTeam(dominator) == 3 && IsPlayerAlive(dominator) && iKillAttacker != 2)
-	{
-		switch (GetEntProp(dominator, Prop_Send, "m_zombieClass"))
-		{
+        int dominator = iAttacker[client];
+        iAttacker[client] = 0;
+
+        ClearStruggleBar(client);
+        fStruggleProgress[client] = 0.0;
+        bWasCrouching[client] = false;
+
+        if (dominator != 0 && IsClientInGame(dominator) && GetClientTeam(dominator) == 3 && IsPlayerAlive(dominator) && (bFromStruggle || iKillAttacker != 2))
+        {
+                switch (GetEntProp(dominator, Prop_Send, "m_zombieClass"))
+                {
 			case 1:
 			{
 				Event eTonguePullStopped = CreateEvent("tongue_pull_stopped", true);
@@ -1693,19 +1953,41 @@ void RemoveHindrance(int client)
 			}
 		}
 		
-		if (iKillAttacker == 0)
-		{
-			float fStaggerPos[3];
-			GetEntPropVector(client, Prop_Send, "m_vecOrigin", fStaggerPos);
-			SDKCall(hSHStagger, dominator, client, fStaggerPos);
+                if (bFromStruggle)
+                {
+                        switch (iStruggleEscapeEffect)
+                        {
+                                case 1:
+                                {
+                                        ForcePlayerSuicide(dominator);
+
+                                        Event ePlayerDeath = CreateEvent("player_death");
+                                        ePlayerDeath.SetInt("userid", GetClientUserId(dominator));
+                                        ePlayerDeath.SetInt("attacker", GetClientUserId(client));
+                                        ePlayerDeath.Fire();
+                                }
+                                case 2:
+                                {
+                                        float fStaggerPos[3];
+                                        GetEntPropVector(client, Prop_Send, "m_vecOrigin", fStaggerPos);
+                                        SDKCall(hSHStagger, dominator, client, fStaggerPos);
+                                        SDKCall(hSHStagger, client, dominator, fStaggerPos);
+                                }
+                        }
+                }
+                else if (iKillAttacker == 0)
+                {
+                        float fStaggerPos[3];
+                        GetEntPropVector(client, Prop_Send, "m_vecOrigin", fStaggerPos);
+                        SDKCall(hSHStagger, dominator, client, fStaggerPos);
 
 		} 
-		else
-		{
-			ForcePlayerSuicide(dominator);
-			Event ePlayerDeath = CreateEvent("player_death");
-			ePlayerDeath.SetInt("userid", GetClientUserId(dominator));
-			ePlayerDeath.SetInt("attacker", GetClientUserId(client));
+                else if (!bFromStruggle)
+                {
+                        ForcePlayerSuicide(dominator);
+                        Event ePlayerDeath = CreateEvent("player_death");
+                        ePlayerDeath.SetInt("userid", GetClientUserId(dominator));
+                        ePlayerDeath.SetInt("attacker", GetClientUserId(client));
 			ePlayerDeath.Fire();
 
 		}

@@ -23,6 +23,7 @@
 
 new HelpState[MAXPLAYERS+1];
 new HelpOtherState[MAXPLAYERS+1];
+new HelpOtherTarget[MAXPLAYERS+1];
 new Attacker[MAXPLAYERS+1];
 new IncapType[MAXPLAYERS+1];
 new Handle:Timers[MAXPLAYERS+1];
@@ -52,6 +53,10 @@ new Handle:hOnGameData = null;
 new ConVar:cvarAdrenalineDuration;
 float fAdrenalineDuration;
 bool bNotifySelfhelpEvents = false;
+
+float StruggleProgress[MAXPLAYERS+1];
+float LastCrouchPress[MAXPLAYERS+1];
+bool WasCrouching[MAXPLAYERS+1];
 
 new L4D2Version=false;
 public Plugin:myinfo = 
@@ -92,8 +97,8 @@ public OnPluginStart()
 	l4d_selfhelp_pickup = CreateConVar("l4d_selfhelp_pickup", "1", "incap pick up , 0: disable, 1 :enable  ");
 	l4d_selfhelp_kill = CreateConVar("l4d_selfhelp_kill", "1", "kill attacker");
 	l4d_selfhelp_announce = CreateConVar("l4d_selfhelp_announce_revive", "1", "Announce when others help themselves");
-	l4d_selfhelp_adrenaline_rush =  CreateConVar("l4d_selfhelp_adrenaline_rush", "1", "Enable adrenaline rush if user revived with adrenaline");
-	l4d_selfhelp_adrenaline_duration =  CreateConVar("l4d_selfhelp_adrenaline_rush", "10", "Duration of the rush. 0 for default");	
+    l4d_selfhelp_adrenaline_rush =  CreateConVar("l4d_selfhelp_adrenaline_rush", "1", "Enable adrenaline rush if user revived with adrenaline");
+    l4d_selfhelp_adrenaline_duration =  CreateConVar("l4d_selfhelp_adrenaline_duration", "10", "Duration of the rush. 0 for default");
 	l4d_selfhelp_hintdelay = CreateConVar("l4d_selfhelp_hintdelay", "4.0", "hint delay");
 	l4d_selfhelp_delay = CreateConVar("l4d_selfhelp_delay", "1.0", "self help delay");
 	l4d_selfhelp_bot_delay = CreateConVar("l4d_selfhelp_bot_delay", "10.0", "delay this amount of seconds before bots self-recover");
@@ -337,23 +342,30 @@ public Action:WatchPlayer(Handle:timer, any:client)
 }
 public Action:AdvertisePills(Handle:timer, any:client)
 {
-	
-	if (!client) return;
-	if (!IsClientInGame(client)) return;
-	if (!IsPlayerAlive(client)) return;
 
-	if(CanSelfHelp(client))
-	{
-		if(bNotifySelfhelpEvents == true) 
-			PrintToChat(client, "Press \x04CROUCH\x03 to help yourself!");
-	}
+        if (!client) return;
+        if (!IsClientInGame(client)) return;
+        if (!IsPlayerAlive(client)) return;
 
+        if(CanSelfHelp(client))
+        {
+                ShowSelfHelpHint(client);
+        }
+
+}
+void ShowSelfHelpHint(const int client)
+{
+        int pillCount = HavePills(client) ? 1 : 0;
+        int adrenalineCount = HaveAdrenaline(client) ? 1 : 0;
+        int medkitCount = HaveKit(client) ? 1 : 0;
+
+        PrintHintText(client, "You have %d pills, %d adrenaline, %d medkits. Hold CROUCH to revive yourself.", pillCount, adrenalineCount, medkitCount);
 }
 bool:CanSelfHelp(client)
 {
-	new bool:pills=HavePills(client);
-	new bool:kid=HaveKit(client);
-	new bool:adrenaline=HaveAdrenaline(client);
+        new bool:pills=HavePills(client);
+        new bool:kid=HaveKit(client);
+        new bool:adrenaline=HaveAdrenaline(client);
 	new bool:ok=false;
 	new self;
 	if(IncapType[client]==INCAP)
@@ -590,50 +602,88 @@ public Action:PlayerTimer(Handle:timer, any:client)
 			{
 				decl String:msg[30];
 				Format(msg, sizeof(msg), "You are helping %N", other);
-				if(HelpOtherState[client]==STATE_NONE)
-				{
-					if(L4D2Version) 
-					{
-						SetupProgressBar(client, reviveDuration);
-						PrintToChat(client, msg);											 
-					}
-					PrintToChat(other, "%N is helping you", client);
-					HelpStartTime[client]=time;
-				}
-				HelpOtherState[client]=STATE_SELFHELP;
+                                if(HelpOtherState[client]==STATE_NONE)
+                                {
+                                        if(L4D2Version)
+                                        {
+                                                SetupProgressBar(client, reviveDuration);
+                                                PrintToChat(client, msg);
+                                                SetupProgressBar(other, reviveDuration);
+                                                PrintHintText(other, "%N is reviving you", client);
+                                        }
+                                        PrintToChat(other, "%N is helping you", client);
+                                        HelpStartTime[client]=time;
+                                        HelpOtherTarget[client]=other;
+                                }
+                                HelpOtherState[client]=STATE_SELFHELP;
 
-				if(!L4D2Version) ShowBar(client, msg, time-HelpStartTime[client],reviveDuration);
+                                if(!L4D2Version)
+                                {
+                                        ShowBar(client, msg, time-HelpStartTime[client],reviveDuration);
+                                        ShowBar(other, msg, time-HelpStartTime[client],reviveDuration);
+                                }
 
-				if(time-HelpStartTime[client]>reviveDuration)
-				{
-					HelpOther(other, client);
-					HelpOtherState[client]=STATE_NONE;
-					if(L4D2Version) KillProgressBar(client);							
-				}
+                                if(time-HelpStartTime[client]>reviveDuration)
+                                {
+                                        HelpOther(other, client);
+                                        HelpOtherState[client]=STATE_NONE;
+                                        if(L4D2Version)
+                                        {
+                                                KillProgressBar(client);
+                                                KillProgressBar(other);
+                                        }
+                                        HelpOtherTarget[client]=0;
+                                }
 
-			}
-			else
-			{
-				if(HelpOtherState[client]!=STATE_NONE)
-				{
-					if(L4D2Version) KillProgressBar(client);
-					else ShowBar(client, "help other", 0.0, reviveDuration);
-				}
-				HelpOtherState[client]=STATE_NONE;
+                        }
+                        else
+                        {
+                                if(HelpOtherState[client]!=STATE_NONE)
+                                {
+                                        int target = HelpOtherTarget[client];
+                                        if(L4D2Version) KillProgressBar(client);
+                                        else
+                                        {
+                                                ShowBar(client, "help other", 0.0, reviveDuration);
+                                                if(target > 0 && IsClientInGame(target)) ShowBar(target, "help other", 0.0, reviveDuration);
+                                        }
+                                        HelpOtherTarget[client]=0;
+                                }
+                                HelpOtherState[client]=STATE_NONE;
 
-			}
-		}
-		else
-		{
-			if(HelpOtherState[client]!=STATE_NONE)
-			{
-				if(L4D2Version) KillProgressBar(client);
-				else ShowBar(client, "help other", 0.0, reviveDuration);
-			}
-			HelpOtherState[client]=STATE_NONE;
+                        }
+                }
+                else
+                {
+                        if(HelpOtherState[client]!=STATE_NONE)
+                        {
+                                int target = HelpOtherTarget[client];
+                                if(L4D2Version)
+                                {
+                                        KillProgressBar(client);
+                                        if(target > 0 && IsClientInGame(target)) KillProgressBar(target);
+                                }
+                                else
+                                {
+                                        ShowBar(client, "help other", 0.0, reviveDuration);
+                                        if(target > 0 && IsClientInGame(target)) ShowBar(target, "help other", 0.0, reviveDuration);
+                                }
+                                HelpOtherTarget[client]=0;
+                        }
+                        HelpOtherState[client]=STATE_NONE;
 
-		}
-	}
+                }
+        }
+
+        if(IsPinnedByInfected(client))
+        {
+                HandleStruggleInput(client, buttons, time);
+        }
+        else
+        {
+                StruggleProgress[client] = 0.0;
+                WasCrouching[client] = false;
+        }
 
 	if ((buttons & IN_DUCK) && GetConVarInt(l4d_selfhelp_pickup)>0 ) 
 	{	
@@ -941,7 +991,53 @@ bool:HaveAdrenaline(client)
 			return true;
 		}
 	}
-	return false;
+        return false;
+}
+
+bool:IsPinnedByInfected(const int client)
+{
+        return (Attacker[client] != 0 && (IncapType[client] == INCAP_GRAB || IncapType[client] == INCAP_POUNCE || IncapType[client] == INCAP_RIDE || IncapType[client] == INCAP_PUMMEL));
+}
+
+void HandleStruggleInput(const int client, const int buttons, const float time)
+{
+        bool isCrouching = (buttons & IN_DUCK) != 0;
+
+        if(isCrouching && !WasCrouching[client])
+        {
+                float delta = time - LastCrouchPress[client];
+                if(delta <= 0.35)
+                {
+                        StruggleProgress[client] += 5.0;
+                }
+                else
+                {
+                        StruggleProgress[client] = 5.0;
+                }
+                LastCrouchPress[client] = time;
+        }
+
+        if(time - LastCrouchPress[client] >= 1.0)
+        {
+                StruggleProgress[client] = 0.0;
+        }
+
+        WasCrouching[client] = isCrouching;
+
+        ShowBar(client, "Struggle by mashing CROUCH", StruggleProgress[client], 100.0);
+
+        if(StruggleProgress[client] >= 100.0)
+        {
+                int attacker = Attacker[client];
+                KillAttack(client);
+                if(attacker != 0 && IsClientInGame(attacker) && IsPlayerAlive(attacker))
+                {
+                        ForcePlayerSuicide(attacker);
+                }
+                Attacker[client] = 0;
+                StruggleProgress[client] = 0.0;
+                WasCrouching[client] = false;
+        }
 }
 
 
@@ -957,18 +1053,22 @@ bool:IsPlayerGrapEdge(client)
 }
 reset()
 {
-	for (new x = 0; x < MAXPLAYERS+1; x++)
-	{
-		HelpOtherState[x]=HelpState[x]=STATE_NONE;
-		Attacker[x]=0;
-		HelpStartTime[x]=0.0;
-		if(Timers[x]!=INVALID_HANDLE)
-		{
-			KillTimer(Timers[x]);
+        for (new x = 0; x < MAXPLAYERS+1; x++)
+        {
+                HelpOtherState[x]=HelpState[x]=STATE_NONE;
+                HelpOtherTarget[x]=0;
+                Attacker[x]=0;
+                HelpStartTime[x]=0.0;
+                StruggleProgress[x]=0.0;
+                LastCrouchPress[x]=0.0;
+                WasCrouching[x]=false;
+                if(Timers[x]!=INVALID_HANDLE)
+                {
+                        KillTimer(Timers[x]);
 
 		}
 		Timers[x]=INVALID_HANDLE;
-	}
+        }
 }
 stock SetupProgressBar(client, Float:time)
 {
