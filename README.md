@@ -229,6 +229,27 @@ To use the API in your plugin, include the header file:
 
 The include file (`l4d2_predicaments.inc`) should be placed in `addons/sourcemod/scripting/include/`
 
+## Performance Considerations
+
+This plugin has been optimized for performance with the following improvements:
+
+### Optimization Strategies
+- **Cached Property Lookups**: Entity properties are cached to avoid redundant GetEntProp calls
+- **Early Exit Conditions**: Functions return early when conditions aren't met to minimize processing
+- **Efficient Loop Logic**: Player iteration loops use optimized validation checks
+- **Reduced Timer Overhead**: Timer callbacks include early validation to skip unnecessary work
+
+### Performance Impact
+The plugin uses several mechanisms that run frequently:
+- `OnPlayerRunCmd`: Called every frame for player input handling (crawling, bot behavior)
+- `RecordLastPosition`: Runs every 0.1 seconds to track survivor positions
+- `AnalyzePlayerState`: Per-player timer (0.1s) for monitoring incapacitation state
+
+### Recommendations for High-Performance Servers
+- Disable crawling if not needed: `l4d2_predicament_crawl_enable "0"`
+- Limit bot self-help if server has many bots: `l4d2_predicament_bot "0"`
+- Increase timer intervals if experiencing performance issues (requires source modification)
+
 ## Compatibility
 
 - **Left 4 Dead**: Fully supported
@@ -255,17 +276,20 @@ A: Make sure `l4d2_predicament_struggle_mode` is set to `1` or `2`, and `l4d2_pr
 **Q: Players can use items to escape pins even with struggle mode enabled**  
 A: Set `l4d2_predicament_kill_attacker "2"` to disable item-based escapes and force struggle system
 
+**Q: Server experiencing performance issues with many players**  
+A: Try disabling crawling and bot self-help features, or reduce the number of active features
+
 ## Credits
 
 - **Pan Xiaohai** - Original plugin
 - **cravenge** - Improvements  
-- **Yani** - Enhancements
+- **Yani** - Enhancements and performance optimizations
 - **Community** - Testing and feedback
 
 ## Links
 
 - **Original Thread**: https://forums.alliedmods.net/showthread.php?t=281620
-- **Repository**: https://github.com/janiluuk/L4D2_Self_Help
+- **Repository**: https://github.com/janiluuk/L4D2_Predicaments
 - **Issues**: Report bugs via GitHub Issues
 
 ## License
