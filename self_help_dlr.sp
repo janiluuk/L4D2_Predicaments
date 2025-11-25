@@ -14,10 +14,10 @@ enum SelfHelpState
 };
 
 ConVar shEnable, shUse, shIncapPickup, shDelay, shKillAttacker, shBot, shBotChance, shHardHP,
-	shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration;
+	shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration, shCrawlEnable, shCrawlSpeed;
 
-bool bIsL4D, bEnabled, bIncapPickup, bKillAttacker, bBot;
-float fAdrenalineDuration, fDelay, fTempHP, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1];
+bool bIsL4D, bEnabled, bIncapPickup, bKillAttacker, bBot, bCrawlEnable;
+float fAdrenalineDuration, fDelay, fTempHP, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1], fCrawlSpeed;
 int iSurvivorClass, iKillAttacker, iUse, iBotChance, iHardHP, iMaxCount, iAttacker[MAXPLAYERS+1],
 	iBotHelp[MAXPLAYERS+1], iReviveDuration, iMaxIncapCount, iSHCount[MAXPLAYERS+1];
 
@@ -140,6 +140,8 @@ public void OnPluginStart()
 	shBotChance = CreateConVar("self_help_bot_chance", "4", "Chance Of Bot Self-Helping: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
 	shHardHP = CreateConVar("self_help_hard_hp", "50", "Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
 	shTempHP = CreateConVar("self_help_temp_hp", "50.0", "Temporary Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	shCrawlEnable = CreateConVar("self_help_crawl_enable", "1", "Enable/Disable Incapped Crawling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shCrawlSpeed = CreateConVar("self_help_crawl_speed", "0.15", "Crawling Speed Multiplier (0.0 - 1.0)", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
 	
 	if (bIsL4D)
 	{
@@ -158,9 +160,11 @@ public void OnPluginStart()
 	iKillAttacker = shKillAttacker.IntValue;
 
 	bBot = shBot.BoolValue;
+	bCrawlEnable = shCrawlEnable.BoolValue;
 	
 	fDelay = shDelay.FloatValue;
 	fTempHP = shTempHP.FloatValue;
+	fCrawlSpeed = shCrawlSpeed.FloatValue;
 	
 	shEnable.AddChangeHook(OnSHCVarsChanged);
 	shUse.AddChangeHook(OnSHCVarsChanged);
@@ -172,6 +176,8 @@ public void OnPluginStart()
 	shBotChance.AddChangeHook(OnSHCVarsChanged);
 	shHardHP.AddChangeHook(OnSHCVarsChanged);
 	shTempHP.AddChangeHook(OnSHCVarsChanged);
+	shCrawlEnable.AddChangeHook(OnSHCVarsChanged);
+	shCrawlSpeed.AddChangeHook(OnSHCVarsChanged);
 	
 	AutoExecConfig(true, "self_help");
 	
@@ -234,9 +240,11 @@ public void OnSHCVarsChanged(ConVar cvar, const char[] sOldValue, const char[] s
 	iKillAttacker = shKillAttacker.IntValue;
 
 	bBot = shBot.BoolValue;
+	bCrawlEnable = shCrawlEnable.BoolValue;
 	
 	fDelay = shDelay.FloatValue;
 	fTempHP = shTempHP.FloatValue;
+	fCrawlSpeed = shCrawlSpeed.FloatValue;
 	
 	if (bIsL4D)
 	{
@@ -1229,7 +1237,70 @@ public Action DelaySHNotify(Handle timer, Handle dpDefibAnnounce)
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
 {
-	if (!bEnabled || !bBot)
+	if (!bEnabled)
+	{
+		return Plugin_Continue;
+	}
+	
+	// Handle incapped crawling for all players
+	if (bCrawlEnable && IsSurvivor(client) && IsPlayerAlive(client))
+	{
+		if (GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && iAttacker[client] == 0)
+		{
+			// Allow crawling movement when incapped and not grabbed
+			if (buttons & IN_FORWARD || buttons & IN_BACK || buttons & IN_MOVELEFT || buttons & IN_MOVERIGHT)
+			{
+				float vVelocity[3];
+				GetEntPropVector(client, Prop_Data, "m_vecVelocity", vVelocity);
+				
+				// Calculate movement direction from angles
+				float vForward[3], vRight[3];
+				GetAngleVectors(angles, vForward, vRight, NULL_VECTOR);
+				
+				float vMove[3];
+				vMove[0] = 0.0;
+				vMove[1] = 0.0;
+				vMove[2] = 0.0;
+				
+				// Apply movement based on button inputs
+				if (buttons & IN_FORWARD)
+				{
+					vMove[0] += vForward[0];
+					vMove[1] += vForward[1];
+				}
+				if (buttons & IN_BACK)
+				{
+					vMove[0] -= vForward[0];
+					vMove[1] -= vForward[1];
+				}
+				if (buttons & IN_MOVELEFT)
+				{
+					vMove[0] -= vRight[0];
+					vMove[1] -= vRight[1];
+				}
+				if (buttons & IN_MOVERIGHT)
+				{
+					vMove[0] += vRight[0];
+					vMove[1] += vRight[1];
+				}
+				
+				// Normalize and scale by crawl speed
+				float fLength = SquareRoot(vMove[0] * vMove[0] + vMove[1] * vMove[1]);
+				if (fLength > 0.0)
+				{
+					float fCrawlVelocity = 85.0 * fCrawlSpeed; // Base incap speed is around 85
+					vMove[0] = (vMove[0] / fLength) * fCrawlVelocity;
+					vMove[1] = (vMove[1] / fLength) * fCrawlVelocity;
+					vMove[2] = vVelocity[2]; // Keep vertical velocity
+					
+					TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, vMove);
+				}
+			}
+		}
+	}
+	
+	// Bot self-help behavior
+	if (!bBot)
 	{
 		return Plugin_Continue;
 	}
