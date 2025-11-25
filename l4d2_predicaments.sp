@@ -4,6 +4,8 @@
 
 #define PLUGIN_VERSION "0.4"
 #define BASE_INCAP_SPEED 85.0
+#define MAX_HELP_DISTANCE 100.0
+#define MAX_ITEM_PICKUP_DISTANCE 150.0
 
 /*
  * Performance Optimizations:
@@ -594,7 +596,7 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 				shsBit[client] = SHS_START_SELF;
 				if (!IsFakeClient(client))
 				{
-                                        strcopy(sSHMessage, sizeof(sSHMessage), "REVIVING YOURSELF");
+					strcopy(sSHMessage, sizeof(sSHMessage), "REVIVING YOURSELF");
 					DisplaySHProgressBar(client, client, iReviveDuration, sSHMessage, true);
 					
 					if (!bIsL4D)
@@ -651,7 +653,7 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 			{
 				GetEntPropVector(i, Prop_Send, "m_vecOrigin", fOtherPos);
 				
-				if (GetVectorDistance(fOtherPos, fPos) <= 100.0)
+				if (GetVectorDistance(fOtherPos, fPos) <= MAX_HELP_DISTANCE)
 				{
 					iTarget = i;
 					break;
@@ -665,27 +667,27 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 			if (shsBit[client] == SHS_NONE || shsBit[client] == SHS_CONTINUE)
 			{
 				shsBit[client] = SHS_START_OTHER;
-                                if (!IsFakeClient(client))
-                                {
-                                        Format(sSHMessage, sizeof(sSHMessage), "REVIVING %N", iTarget);
-                                        DisplaySHProgressBar(client, iTarget, iReviveDuration, sSHMessage, true);
+				if (!IsFakeClient(client))
+				{
+					Format(sSHMessage, sizeof(sSHMessage), "REVIVING %N", iTarget);
+					DisplaySHProgressBar(client, iTarget, iReviveDuration, sSHMessage, true);
 
-                                        if (!bIsL4D)
-                                        {
-                                                PrintHintText(client, "Reviving %N", iTarget);
-                                        }
-                                }
+					if (!bIsL4D)
+					{
+						PrintHintText(client, "Reviving %N", iTarget);
+					}
+				}
 
-                                if (!IsFakeClient(iTarget))
-                                {
-                                        Format(sSHMessage, sizeof(sSHMessage), "%N IS REVIVING YOU", client);
-                                        DisplaySHProgressBar(iTarget, client, iReviveDuration, sSHMessage);
+				if (!IsFakeClient(iTarget))
+				{
+					Format(sSHMessage, sizeof(sSHMessage), "%N IS REVIVING YOU", client);
+					DisplaySHProgressBar(iTarget, client, iReviveDuration, sSHMessage);
 
-                                        if (!bIsL4D)
-                                        {
-                                                PrintHintText(iTarget, "%N is reviving you", client);
-                                        }
-                                }
+					if (!bIsL4D)
+					{
+						PrintHintText(iTarget, "%N is reviving you", client);
+					}
+				}
 				
 				DataPack dpSHReviveOther = new DataPack();
 				dpSHReviveOther.WriteCell(GetClientUserId(client));
@@ -729,7 +731,7 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 				
 				GetEntPropVector(iItemEnt, Prop_Send, "m_vecOrigin", fItemPos);
 				
-				if (GetVectorDistance(fPos, fItemPos) <= 150.0)
+				if (GetVectorDistance(fPos, fItemPos) <= MAX_ITEM_PICKUP_DISTANCE)
 				{
 					ExecuteCommand(client, "give", "first_aid_kit");
 					PrintHintText(client, "Grabbing First Aid Kit!");
@@ -752,7 +754,7 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 				
 				GetEntPropVector(iItemEnt, Prop_Send, "m_vecOrigin", fItemPos);
 				
-				if (GetVectorDistance(fPos, fItemPos) <= 150.0)
+				if (GetVectorDistance(fPos, fItemPos) <= MAX_ITEM_PICKUP_DISTANCE)
 				{
 					ExecuteCommand(client, "give", "pain_pills");
 					PrintHintText(client, "Grabbing Pain Pills!");
@@ -775,7 +777,7 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 					
 					GetEntPropVector(iItemEnt, Prop_Send, "m_vecOrigin", fItemPos);
 					
-					if (GetVectorDistance(fPos, fItemPos) <= 150.0)
+					if (GetVectorDistance(fPos, fItemPos) <= MAX_ITEM_PICKUP_DISTANCE)
 					{
 						ExecuteCommand(client, "give", "adrenaline");
 					//	PrintHintText(client, "[SH]\nGrabbing Adrenaline!");
@@ -1482,7 +1484,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 			{
 				GetEntPropVector(i, Prop_Send, "m_vecOrigin", fPlayerPos[1]);
 				
-				if (GetVectorDistance(fPlayerPos[0], fPlayerPos[1]) <= 100.0)
+				if (GetVectorDistance(fPlayerPos[0], fPlayerPos[1]) <= MAX_HELP_DISTANCE)
 				{
 					iTarget = i;
 					break;
