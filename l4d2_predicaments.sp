@@ -145,23 +145,23 @@ public void OnPluginStart()
 	}
 	
 	CreateConVar("l4d2_predicaments_version", PLUGIN_VERSION, "L4D2 Predicaments Version", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_DONTRECORD);
-	shEnable = CreateConVar("self_help_enable", "1", "Enable/Disable Plugin", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-	shUse = CreateConVar("self_help_use", "3", "Use: 0=None, 1=Pills And Adrenalines, 2=First Aid Kits Only, 3=Both", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 3.0);
-	shIncapPickup = CreateConVar("self_help_incap_pickup", "1", "Enable/Disable Item Pick-Ups While Incapacitated", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-        shDelay = CreateConVar("self_help_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
-        shKillAttacker = CreateConVar("self_help_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shStruggleMode = CreateConVar("self_help_struggle_mode", "2", "Pinned behavior: 0=disabled, 1=hold crouch to self-help, 2=mash crouch to struggle", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shStruggleGain = CreateConVar("self_help_struggle_gain", "5.0", "Percent gained per crouch press while struggling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
-        shStrugglePushback = CreateConVar("self_help_struggle_pushback", "2.5", "Percent lost per attacker sprint press", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
-        shStruggleEscapeEffect = CreateConVar("self_help_struggle_effect", "0", "On struggle escape: 0=nothing extra, 1=kill attacker, 2=knock both back", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shBot = CreateConVar("self_help_bot", "1", "Enable/Disable Bot Self-Help", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-        shBotChance = CreateConVar("self_help_bot_chance", "4", "Chance Of Bot Self-Helping: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
-        shHardHP = CreateConVar("self_help_hard_hp", "50", "Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
-	shTempHP = CreateConVar("self_help_temp_hp", "50.0", "Temporary Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	shEnable = CreateConVar("l4d2_predicament_enable", "1", "Enable/Disable Plugin", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shUse = CreateConVar("l4d2_predicament_use", "3", "Use: 0=None, 1=Pills And Adrenalines, 2=First Aid Kits Only, 3=Both", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 3.0);
+	shIncapPickup = CreateConVar("l4d2_predicament_incap_pickup", "1", "Enable/Disable Item Pick-Ups While Incapacitated", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+        shDelay = CreateConVar("l4d2_predicament_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
+        shKillAttacker = CreateConVar("l4d2_predicament_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shStruggleMode = CreateConVar("l4d2_predicament_struggle_mode", "2", "Pinned behavior: 0=disabled, 1=hold crouch to revive, 2=mash crouch to struggle", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shStruggleGain = CreateConVar("l4d2_predicament_struggle_gain", "5.0", "Percent gained per crouch press while struggling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
+        shStrugglePushback = CreateConVar("l4d2_predicament_struggle_pushback", "2.5", "Percent lost per attacker sprint press", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
+        shStruggleEscapeEffect = CreateConVar("l4d2_predicament_struggle_effect", "0", "On struggle escape: 0=nothing extra, 1=kill attacker, 2=knock both back", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shBot = CreateConVar("l4d2_predicament_bot", "1", "Enable/Disable Bot Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+        shBotChance = CreateConVar("l4d2_predicament_bot_chance", "4", "Chance Of Bot Revival: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
+        shHardHP = CreateConVar("l4d2_predicament_hard_hp", "50", "Health Given After Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	shTempHP = CreateConVar("l4d2_predicament_temp_hp", "50.0", "Temporary Health Given After Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
 	
 	if (bIsL4D)
 	{
-		shMaxCount = CreateConVar("self_help_max_count", "3", "Maximum Attempts of Self-Help", FCVAR_NOTIFY|FCVAR_SPONLY, true, 3.0);
+		shMaxCount = CreateConVar("l4d2_predicament_max_count", "3", "Maximum Attempts of Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 3.0);
 		iMaxCount = shMaxCount.IntValue;
 		shMaxCount.AddChangeHook(OnSHCVarsChanged);
 	}

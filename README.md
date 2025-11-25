@@ -1,11 +1,11 @@
 # L4D2 Predicaments Plugin
 
-This SourceMod plugin enhances survivor gameplay by allowing players to help themselves and each other in predicaments. Based on Pan Xiaohai's original "Self Help" plugin, it includes bot support, incapacitated item interactions, a struggling system for pinned survivors, and developer API hooks for extensibility.
+This SourceMod plugin enhances survivor gameplay by allowing players to help themselves and each other in predicaments. Based on Pan Xiaohai's original plugin, it includes bot support, incapacitated item interactions, a struggling system for pinned survivors, and developer API hooks for extensibility.
 
 ## Features
 
 ### Core Mechanics
-- **Self-Revival**: Survivors can revive themselves from incapacitation by holding CROUCH and consuming pills, adrenaline, or first-aid kits
+- **Revive Yourself**: Survivors can revive themselves from incapacitation by holding CROUCH and consuming pills, adrenaline, or first-aid kits
 - **Ledge Rescue**: Pull yourself up from ledges using available medical items
 - **Pin Escape**: Break free from Special Infected (Smoker, Hunter, Jockey, Charger) grabs by using items or struggling
 - **Teammate Revival**: Incapacitated survivors can revive other incapacitated teammates by pressing RELOAD
@@ -19,9 +19,9 @@ This SourceMod plugin enhances survivor gameplay by allowing players to help the
 ### Quality of Life
 - **Item Pickup While Down**: Grab nearby medical supplies while incapacitated
 - **Smart Healing**: Plugin intelligently chooses between pills and medkits based on situation
-- **Bot Support**: Bots can self-revive with configurable delay and chance
+- **Bot Support**: Bots can revive themselves with configurable delay and chance
 - **Progress Bars**: Visual indicators for revival and struggle progress
-- **Adrenaline Rush**: Proper adrenaline effects when self-reviving with adrenaline
+- **Adrenaline Rush**: Proper adrenaline effects when reviving with adrenaline
 
 ### Developer API
 - **Forward Hooks**: Allow external plugins to control healing and struggle permissions
@@ -51,46 +51,46 @@ This SourceMod plugin enhances survivor gameplay by allowing players to help the
 | ConVar | Default | Description |
 |--------|---------|-------------|
 | `l4d2_predicaments_version` | `0.4` | Plugin version (read-only) |
-| `self_help_enable` | `1` | Master switch: 0=disabled, 1=enabled |
-| `self_help_use` | `3` | Items allowed: 0=none, 1=pills/adrenaline, 2=medkits, 3=both |
-| `self_help_incap_pickup` | `1` | Allow item pickup while incapped: 0=no, 1=yes |
-| `self_help_delay` | `1.0` | Delay (seconds) before plugin mechanics activate |
-| `self_help_kill_attacker` | `2` | Pin behavior: 0=unpin only, 1=unpin+kill, 2=disable unpin (use struggle) |
-| `self_help_struggle_mode` | `2` | Struggle system: 0=disabled, 1=hold crouch, 2=mash crouch |
-| `self_help_struggle_gain` | `5.0` | Percent gained per crouch press (0.0-100.0) |
-| `self_help_struggle_pushback` | `2.5` | Percent lost when attacker presses sprint (0.0-100.0) |
-| `self_help_struggle_effect` | `0` | On escape: 0=nothing, 1=kill attacker, 2=knockback both |
-| `self_help_bot` | `1` | Bot self-help: 0=disabled, 1=enabled |
-| `self_help_bot_chance` | `4` | Bot chance: 1=sometimes, 2=often, 3=seldom, 4=always |
-| `self_help_hard_hp` | `50` | Permanent health given after self-help (1-100) |
-| `self_help_temp_hp` | `50.0` | Temporary health given after self-help (1.0-100.0) |
+| `l4d2_predicament_enable` | `1` | Master switch: 0=disabled, 1=enabled |
+| `l4d2_predicament_use` | `3` | Items allowed: 0=none, 1=pills/adrenaline, 2=medkits, 3=both |
+| `l4d2_predicament_incap_pickup` | `1` | Allow item pickup while incapped: 0=no, 1=yes |
+| `l4d2_predicament_delay` | `1.0` | Delay (seconds) before plugin mechanics activate |
+| `l4d2_predicament_kill_attacker` | `2` | Pin behavior: 0=unpin only, 1=unpin+kill, 2=disable unpin (use struggle) |
+| `l4d2_predicament_struggle_mode` | `2` | Struggle system: 0=disabled, 1=hold crouch, 2=mash crouch |
+| `l4d2_predicament_struggle_gain` | `5.0` | Percent gained per crouch press (0.0-100.0) |
+| `l4d2_predicament_struggle_pushback` | `2.5` | Percent lost when attacker presses sprint (0.0-100.0) |
+| `l4d2_predicament_struggle_effect` | `0` | On escape: 0=nothing, 1=kill attacker, 2=knockback both |
+| `l4d2_predicament_bot` | `1` | Bot revival: 0=disabled, 1=enabled |
+| `l4d2_predicament_bot_chance` | `4` | Bot chance: 1=sometimes, 2=often, 3=seldom, 4=always |
+| `l4d2_predicament_hard_hp` | `50` | Permanent health given after revival (1-100) |
+| `l4d2_predicament_temp_hp` | `50.0` | Temporary health given after revival (1.0-100.0) |
 
 ### Configuration Examples
 
-**Competitive Settings** (harder self-help):
+**Competitive Settings** (harder):
 ```
-self_help_use "1"                  // Pills/adrenaline only
-self_help_struggle_mode "2"        // Must struggle to escape pins
-self_help_struggle_gain "3.0"      // Slower struggle progress
-self_help_bot "0"                  // Disable bot self-help
-self_help_hard_hp "30"             // Less health on revival
-self_help_temp_hp "20.0"
+l4d2_predicament_use "1"                  // Pills/adrenaline only
+l4d2_predicament_struggle_mode "2"        // Must struggle to escape pins
+l4d2_predicament_struggle_gain "3.0"      // Slower struggle progress
+l4d2_predicament_bot "0"                  // Disable bot revival
+l4d2_predicament_hard_hp "30"             // Less health on revival
+l4d2_predicament_temp_hp "20.0"
 ```
 
-**Casual Settings** (easier self-help):
+**Casual Settings** (easier):
 ```
-self_help_use "3"                  // All items work
-self_help_struggle_mode "1"        // Just hold crouch
-self_help_kill_attacker "1"        // Kill attacker on self-help
-self_help_bot "1"                  // Enable bot self-help
-self_help_bot_chance "4"           // Bots always help themselves
+l4d2_predicament_use "3"                  // All items work
+l4d2_predicament_struggle_mode "1"        // Just hold crouch
+l4d2_predicament_kill_attacker "1"        // Kill attacker on escape
+l4d2_predicament_bot "1"                  // Enable bot revival
+l4d2_predicament_bot_chance "4"           // Bots always revive themselves
 ```
 
 **Struggle-Only Mode** (no item usage while pinned):
 ```
-self_help_kill_attacker "2"        // Disable item-based unpin
-self_help_struggle_mode "2"        // Enable struggle system
-self_help_struggle_effect "1"      // Kill attacker on successful struggle
+l4d2_predicament_kill_attacker "2"        // Disable item-based unpin
+l4d2_predicament_struggle_mode "2"        // Enable struggle system
+l4d2_predicament_struggle_effect "1"      // Kill attacker on successful struggle
 ```
 
 ## Developer API
@@ -243,23 +243,23 @@ The plugin automatically detects the game version and adjusts features according
 **Q: Plugin fails to load with "Game Data Missing" error**  
 A: Ensure `gamedata/l4d2_predicaments.txt` is in the correct directory
 
-**Q: Self-help doesn't work**  
-A: Check that `self_help_enable` is set to `1` and `self_help_use` is not `0`
+**Q: Revival doesn't work**  
+A: Check that `l4d2_predicament_enable` is set to `1` and `l4d2_predicament_use` is not `0`
 
-**Q: Bots never self-help**  
-A: Verify `self_help_bot "1"` and adjust `self_help_bot_chance` (4 = always)
+**Q: Bots never revive themselves**  
+A: Verify `l4d2_predicament_bot "1"` and adjust `l4d2_predicament_bot_chance` (4 = always)
 
 **Q: Struggle system doesn't work when pinned**  
-A: Make sure `self_help_struggle_mode` is set to `1` or `2`, and `self_help_kill_attacker` is set to `2`
+A: Make sure `l4d2_predicament_struggle_mode` is set to `1` or `2`, and `l4d2_predicament_kill_attacker` is set to `2`
 
 **Q: Players can use items to escape pins even with struggle mode enabled**  
-A: Set `self_help_kill_attacker "2"` to disable item-based escapes and force struggle system
+A: Set `l4d2_predicament_kill_attacker "2"` to disable item-based escapes and force struggle system
 
 ## Credits
 
-- **Pan Xiaohai** - Original Self Help plugin
-- **cravenge** - Self-Help Reloaded improvements  
-- **Yani** - DLR edition enhancements
+- **Pan Xiaohai** - Original plugin
+- **cravenge** - Improvements  
+- **Yani** - Enhancements
 - **Community** - Testing and feedback
 
 ## Links
