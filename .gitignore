@@ -1,0 +1,7 @@
+# SourceMod compiler downloads
+sm/
+sm.tar.gz
+sm.zip
+
+# Build artifacts
+package/

@@ -47,11 +47,15 @@ new Handle:l4d_selfhelp_adrenaline_rush = INVALID_HANDLE;
 new Handle:l4d_selfhelp_adrenaline_duration = INVALID_HANDLE;
 new Handle:l4d_selfhelp_kill = INVALID_HANDLE;
 new Handle:l4d_selfhelp_versus = INVALID_HANDLE;
+new Handle:l4d_selfhelp_crawl_enable = INVALID_HANDLE;
+new Handle:l4d_selfhelp_crawl_speed = INVALID_HANDLE;
 new Handle:hOnAdrenalineRush = null;
 new Handle:hOnGameData = null;
 new ConVar:cvarAdrenalineDuration;
 float fAdrenalineDuration;
+float fCrawlSpeed;
 bool bNotifySelfhelpEvents = false;
+bool bCrawlEnable;
 
 new L4D2Version=false;
 public Plugin:myinfo = 
@@ -99,7 +103,14 @@ public OnPluginStart()
 	l4d_selfhelp_bot_delay = CreateConVar("l4d_selfhelp_bot_delay", "10.0", "delay this amount of seconds before bots self-recover");
 	l4d_selfhelp_duration = CreateConVar("l4d_selfhelp_duration", "3.0", "Override selfhelp duration with this amount of seconds");
 
-	l4d_selfhelp_versus = CreateConVar("l4d_selfhelp_versus", "1", "0: disable in versus, 1: enable in versus");	
+	l4d_selfhelp_versus = CreateConVar("l4d_selfhelp_versus", "1", "0: disable in versus, 1: enable in versus");
+	l4d_selfhelp_crawl_enable = CreateConVar("l4d_selfhelp_crawl_enable", "1", "Enable/Disable Incapped Crawling", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	l4d_selfhelp_crawl_speed = CreateConVar("l4d_selfhelp_crawl_speed", "0.15", "Crawling Speed Multiplier (0.0 - 1.0)", FCVAR_NOTIFY, true, 0.0, true, 1.0);
+	
+	bCrawlEnable = GetConVarBool(l4d_selfhelp_crawl_enable);
+	fCrawlSpeed = GetConVarFloat(l4d_selfhelp_crawl_speed);
+	HookConVarChange(l4d_selfhelp_crawl_enable, OnCrawlCVarChanged);
+	HookConVarChange(l4d_selfhelp_crawl_speed, OnCrawlCVarChanged);
 	
 	AutoExecConfig(true, "l4d_selfhelp_bot");
 	GameCheck();
@@ -1057,6 +1068,77 @@ public Action AutoHelpBot(Handle hTimer, int client)
 		SetEntityHealth(client, 1);
 		return Plugin_Stop;
 	}
+	return Plugin_Continue;
+}
+
+public void OnCrawlCVarChanged(Handle convar, const char[] oldValue, const char[] newValue)
+{
+	bCrawlEnable = GetConVarBool(l4d_selfhelp_crawl_enable);
+	fCrawlSpeed = GetConVarFloat(l4d_selfhelp_crawl_speed);
+}
+
+public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
+{
+	if (!bCrawlEnable)
+	{
+		return Plugin_Continue;
+	}
+	
+	// Handle incapped crawling for all players
+	if (client > 0 && client <= MaxClients && IsClientInGame(client) && GetClientTeam(client) == 2 
+		&& IsPlayerAlive(client) && IsIncapacitated(client) && Attacker[client] == 0)
+	{
+		// Allow crawling movement when incapped and not grabbed
+		if (buttons & IN_FORWARD || buttons & IN_BACK || buttons & IN_MOVELEFT || buttons & IN_MOVERIGHT)
+		{
+			float vVelocity[3];
+			GetEntPropVector(client, Prop_Data, "m_vecVelocity", vVelocity);
+			
+			// Calculate movement direction from angles
+			float vForward[3], vRight[3];
+			GetAngleVectors(angles, vForward, vRight, NULL_VECTOR);
+			
+			float vMove[3];
+			vMove[0] = 0.0;
+			vMove[1] = 0.0;
+			vMove[2] = 0.0;
+			
+			// Apply movement based on button inputs
+			if (buttons & IN_FORWARD)
+			{
+				vMove[0] += vForward[0];
+				vMove[1] += vForward[1];
+			}
+			if (buttons & IN_BACK)
+			{
+				vMove[0] -= vForward[0];
+				vMove[1] -= vForward[1];
+			}
+			if (buttons & IN_MOVELEFT)
+			{
+				vMove[0] -= vRight[0];
+				vMove[1] -= vRight[1];
+			}
+			if (buttons & IN_MOVERIGHT)
+			{
+				vMove[0] += vRight[0];
+				vMove[1] += vRight[1];
+			}
+			
+			// Normalize and scale by crawl speed
+			float fLength = SquareRoot(vMove[0] * vMove[0] + vMove[1] * vMove[1]);
+			if (fLength > 0.0)
+			{
+				float fCrawlVelocity = 85.0 * fCrawlSpeed; // Base incap speed is around 85
+				vMove[0] = (vMove[0] / fLength) * fCrawlVelocity;
+				vMove[1] = (vMove[1] / fLength) * fCrawlVelocity;
+				vMove[2] = vVelocity[2]; // Keep vertical velocity
+				
+				TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, vMove);
+			}
+		}
+	}
+	
 	return Plugin_Continue;
 }
 
