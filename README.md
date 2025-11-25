@@ -1,54 +1,273 @@
-# L4D2 Self-Help Plugins
+# L4D2 Predicaments Plugin
 
-This repository provides two SourceMod plugins that let survivors rescue themselves in tough situations. Both are based on Pan Xiaohai's original "Self Help" plugin, with extensions for bot support and item interactions while incapacitated.
+This SourceMod plugin enhances survivor gameplay by allowing players to help themselves and each other in predicaments. Based on Pan Xiaohai's original plugin, it includes bot support, incapacitated item interactions, a struggling system for pinned survivors, and developer API hooks for extensibility.
 
-- **`l4d_selfhelp_bot.sp`** – legacy plugin with optional bot self-revival and adrenaline rush support.
-- **`self_help_dlr.sp`** – newer "Reloaded" version (DLR edition) that adds incap item pickup, self-healing while downed, and smarter bot behaviour.
+## Features
 
-## Features at a Glance
+### Core Mechanics
+- **Revive Yourself**: Survivors can revive themselves from incapacitation by holding CROUCH and consuming pills, adrenaline, or first-aid kits
+- **Ledge Rescue**: Pull yourself up from ledges using available medical items
+- **Pin Escape**: Break free from Special Infected (Smoker, Hunter, Jockey, Charger) grabs by using items or struggling
+- **Teammate Revival**: Incapacitated survivors can revive other incapacitated teammates by pressing RELOAD
 
-- Self-unpin from grabs, pounces, rides, and ledge hangs by consuming pills or first-aid kits.
-- Optional attacker punishment when breaking free.
-- Bots can self-revive after a configurable delay.
-- Adrenaline rush support with configurable duration (bug-fixed in this repo version).
-- On-screen prompts show what aid you carry and remind you to hold crouch to self-revive.
-- Teammate revives display progress to both players so the downed survivor sees who is reviving them.
-- When pinned by a special infected (DLR), survivors get a visible struggle meter that builds by mashing crouch while the attacker can fight back.
-- Item pickup and healing actions while incapacitated (DLR edition).
+### Struggle System
+- **Mash to Escape**: When pinned, rapidly press CROUCH to build up struggle progress
+- **Counter-Struggle**: Infected players can press SPRINT to push back survivor progress
+- **Visual Feedback**: On-screen progress bar shows struggle status
+- **Escape Effects**: Configurable outcome when survivors break free (stagger, kill attacker, or knockback)
+
+### Quality of Life
+- **Item Pickup While Down**: Grab nearby medical supplies while incapacitated
+- **Smart Healing**: Plugin intelligently chooses between pills and medkits based on situation
+- **Bot Support**: Bots can revive themselves with configurable delay and chance
+- **Progress Bars**: Visual indicators for revival and struggle progress
+- **Adrenaline Rush**: Proper adrenaline effects when reviving with adrenaline
+
+### Developer API
+- **Forward Hooks**: Allow external plugins to control healing and struggle permissions
+- **Native Functions**: Query whether a client can heal others or struggle
+- **Extensible Design**: Easy integration with custom game modes and mechanics
 
 ## Installation
 
-1. Compile the desired plugin (`l4d_selfhelp_bot.sp` or `self_help_dlr.sp`) with the SourceMod compiler.
-2. Copy the resulting `.smx` file into your server's `addons/sourcemod/plugins/` directory.
-3. Place the provided game data file from `gamedata/` into `addons/sourcemod/gamedata/`.
-4. Restart the server or change the map.
+1. **Compile** the plugin using the SourceMod compiler:
+   ```bash
+   spcomp l4d2_predicaments.sp
+   ```
 
-## Key ConVars
+2. **Install** the compiled plugin:
+   - Copy `l4d2_predicaments.smx` to `addons/sourcemod/plugins/`
+   - Copy `gamedata/l4d2_predicaments.txt` to `addons/sourcemod/gamedata/`
 
-### Legacy bot edition (`l4d_selfhelp_bot`)
+3. **Restart** the server or change map
 
-- `l4d_selfhelp_incap`, `l4d_selfhelp_grab`, `l4d_selfhelp_pounce`, `l4d_selfhelp_ride`, `l4d_selfhelp_pummel`, `l4d_selfhelp_edgegrab` – enable (1/2) pills or medkits, or both (3) for each situation.
-- `l4d_selfhelp_bot_delay` – seconds before bots attempt to self-recover.
-- `l4d_selfhelp_duration` – override self-help progress duration (seconds).
-- `l4d_selfhelp_adrenaline_rush` – enable adrenaline rush when reviving with adrenaline.
-- `l4d_selfhelp_adrenaline_duration` – length of the adrenaline rush (fixed name; previously mislabelled).
+4. **Configure** (optional):
+   - Edit `cfg/sourcemod/l4d2_predicaments.cfg` (auto-generated on first load)
 
-### Reloaded DLR edition (`self_help_dlr`)
+## Configuration
 
-- `self_help_enable` – master enable/disable switch.
-- `self_help_use` – choose allowed items: 1=pills/adrenaline, 2=first-aid kits, 3=both.
-- `self_help_incap_pickup` – allow incapacitated players to pick up healable items.
-- `self_help_kill_attacker` – 0=unpin only, 1=unpin and kill attacker, 2=disable unpin.
-- `self_help_struggle_mode` – pinned behaviour: 0=disabled, 1=hold crouch to self-help, 2=mash crouch to struggle.
-- `self_help_struggle_gain` / `self_help_struggle_pushback` – percent gained per survivor crouch press vs lost when the attacker taps sprint.
-- `self_help_struggle_effect` – on escape: 0=none, 1=kill attacker, 2=knock both back.
-- `self_help_bot` / `self_help_bot_chance` – toggle and configure bot self-help behaviour.
-- `self_help_hard_hp` / `self_help_temp_hp` – health granted after successful self-help.
+### ConVar Table
 
-After changing any ConVar, use `sm_cvar <name> <value>` or place them in `cfg/sourcemod/` auto-exec files to persist settings.
+| ConVar | Default | Description |
+|--------|---------|-------------|
+| `l4d2_predicaments_version` | `0.4` | Plugin version (read-only) |
+| `l4d2_predicament_enable` | `1` | Master switch: 0=disabled, 1=enabled |
+| `l4d2_predicament_use` | `3` | Items allowed: 0=none, 1=pills/adrenaline, 2=medkits, 3=both |
+| `l4d2_predicament_incap_pickup` | `1` | Allow item pickup while incapped: 0=no, 1=yes |
+| `l4d2_predicament_delay` | `1.0` | Delay (seconds) before plugin mechanics activate |
+| `l4d2_predicament_kill_attacker` | `2` | Pin behavior: 0=unpin only, 1=unpin+kill, 2=disable unpin (use struggle) |
+| `l4d2_predicament_struggle_mode` | `2` | Struggle system: 0=disabled, 1=hold crouch, 2=mash crouch |
+| `l4d2_predicament_struggle_gain` | `5.0` | Percent gained per crouch press (0.0-100.0) |
+| `l4d2_predicament_struggle_pushback` | `2.5` | Percent lost when attacker presses sprint (0.0-100.0) |
+| `l4d2_predicament_struggle_effect` | `0` | On escape: 0=nothing, 1=kill attacker, 2=knockback both |
+| `l4d2_predicament_bot` | `1` | Bot revival: 0=disabled, 1=enabled |
+| `l4d2_predicament_bot_chance` | `4` | Bot chance: 1=sometimes, 2=often, 3=seldom, 4=always |
+| `l4d2_predicament_hard_hp` | `50` | Permanent health given after revival (1-100) |
+| `l4d2_predicament_temp_hp` | `50.0` | Temporary health given after revival (1.0-100.0) |
 
-## Notes
+### Configuration Examples
 
-- The DLR edition automatically detects Left 4 Dead vs Left 4 Dead 2 and adjusts available features.
-- If you only need bot revival support without the newer mechanics, stick with `l4d_selfhelp_bot.smx`.
-- For detailed discussion and community feedback, see the original AlliedModders thread: https://forums.alliedmods.net/showthread.php?t=281620
+**Competitive Settings** (harder):
+```
+l4d2_predicament_use "1"                  // Pills/adrenaline only
+l4d2_predicament_struggle_mode "2"        // Must struggle to escape pins
+l4d2_predicament_struggle_gain "3.0"      // Slower struggle progress
+l4d2_predicament_bot "0"                  // Disable bot revival
+l4d2_predicament_hard_hp "30"             // Less health on revival
+l4d2_predicament_temp_hp "20.0"
+```
+
+**Casual Settings** (easier):
+```
+l4d2_predicament_use "3"                  // All items work
+l4d2_predicament_struggle_mode "1"        // Just hold crouch
+l4d2_predicament_kill_attacker "1"        // Kill attacker on escape
+l4d2_predicament_bot "1"                  // Enable bot revival
+l4d2_predicament_bot_chance "4"           // Bots always revive themselves
+```
+
+**Struggle-Only Mode** (no item usage while pinned):
+```
+l4d2_predicament_kill_attacker "2"        // Disable item-based unpin
+l4d2_predicament_struggle_mode "2"        // Enable struggle system
+l4d2_predicament_struggle_effect "1"      // Kill attacker on successful struggle
+```
+
+## Developer API
+
+The plugin provides forward hooks and natives for external plugins to control game mechanics.
+
+### Forwards
+
+#### `Predicaments_OnCanHealOthers`
+Called when a survivor attempts to heal another incapacitated survivor.
+
+```sourcepawn
+forward Action Predicaments_OnCanHealOthers(int client, int target, bool &canHeal);
+```
+
+**Parameters:**
+- `client` - The player attempting to heal
+- `target` - The incapacitated player being healed  
+- `canHeal` - Reference to bool; set to `false` to prevent healing
+
+**Returns:** `Plugin_Handled` or `Plugin_Stop` to apply your decision, `Plugin_Continue` to allow default behavior
+
+#### `Predicaments_OnCanStruggle`
+Called when a pinned survivor attempts to struggle.
+
+```sourcepawn
+forward Action Predicaments_OnCanStruggle(int client, bool &canStruggle);
+```
+
+**Parameters:**
+- `client` - The pinned player
+- `canStruggle` - Reference to bool; set to `false` to prevent struggling
+
+**Returns:** `Plugin_Handled` or `Plugin_Stop` to apply your decision, `Plugin_Continue` to allow default behavior
+
+### Natives
+
+#### `Predicaments_CanHealOthers`
+Check if a client can heal another client.
+
+```sourcepawn
+native bool Predicaments_CanHealOthers(int client, int target);
+```
+
+**Returns:** `true` if allowed, `false` otherwise
+
+#### `Predicaments_CanStruggle`
+Check if a client can struggle when pinned by an infected.
+
+```sourcepawn
+native bool Predicaments_CanStruggle(int client);
+```
+
+**Returns:** `true` if allowed, `false` otherwise
+
+### Example Plugin
+
+```sourcepawn
+#include <sourcemod>
+#include <l4d2_predicaments>
+
+public Plugin myinfo = 
+{
+    name = "Predicaments Example",
+    author = "YourName",
+    description = "Example usage of Predicaments API",
+    version = "1.0",
+    url = ""
+};
+
+// Prevent healing if players are too far apart
+public Action Predicaments_OnCanHealOthers(int client, int target, bool &canHeal)
+{
+    float clientPos[3], targetPos[3];
+    GetClientAbsOrigin(client, clientPos);
+    GetClientAbsOrigin(target, targetPos);
+    
+    float distance = GetVectorDistance(clientPos, targetPos);
+    
+    if (distance > 100.0)
+    {
+        canHeal = false;
+        PrintToChat(client, "[Predicaments] Too far to help!");
+        return Plugin_Handled;
+    }
+    
+    return Plugin_Continue;
+}
+
+// Prevent struggling if client has very low health
+public Action Predicaments_OnCanStruggle(int client, bool &canStruggle)
+{
+    int health = GetClientHealth(client);
+    
+    if (health < 10)
+    {
+        canStruggle = false;
+        PrintToChat(client, "[Predicaments] Too weak to struggle!");
+        return Plugin_Handled;
+    }
+    
+    return Plugin_Continue;
+}
+
+// Check if a specific player can heal others (using native)
+public void OnClientPutInServer(int client)
+{
+    if (!IsFakeClient(client))
+    {
+        CreateTimer(5.0, WelcomeMessage, GetClientUserId(client));
+    }
+}
+
+public Action WelcomeMessage(Handle timer, int userid)
+{
+    int client = GetClientOfUserId(userid);
+    
+    if (client && IsClientInGame(client))
+    {
+        // Check if they can help others
+        bool canHelp = Predicaments_CanHealOthers(client, client);
+        PrintToChat(client, "[Predicaments] Can help others: %s", canHelp ? "Yes" : "No");
+    }
+    
+    return Plugin_Stop;
+}
+```
+
+### Include File
+
+To use the API in your plugin, include the header file:
+
+```sourcepawn
+#include <l4d2_predicaments>
+```
+
+The include file (`l4d2_predicaments.inc`) should be placed in `addons/sourcemod/scripting/include/`
+
+## Compatibility
+
+- **Left 4 Dead**: Fully supported
+- **Left 4 Dead 2**: Fully supported
+- **Game Modes**: Works in all game modes (Coop, Versus, Survival, etc.)
+- **SourceMod**: Requires SourceMod 1.10 or higher
+
+The plugin automatically detects the game version and adjusts features accordingly.
+
+## Troubleshooting
+
+**Q: Plugin fails to load with "Game Data Missing" error**  
+A: Ensure `gamedata/l4d2_predicaments.txt` is in the correct directory
+
+**Q: Revival doesn't work**  
+A: Check that `l4d2_predicament_enable` is set to `1` and `l4d2_predicament_use` is not `0`
+
+**Q: Bots never revive themselves**  
+A: Verify `l4d2_predicament_bot "1"` and adjust `l4d2_predicament_bot_chance` (4 = always)
+
+**Q: Struggle system doesn't work when pinned**  
+A: Make sure `l4d2_predicament_struggle_mode` is set to `1` or `2`, and `l4d2_predicament_kill_attacker` is set to `2`
+
+**Q: Players can use items to escape pins even with struggle mode enabled**  
+A: Set `l4d2_predicament_kill_attacker "2"` to disable item-based escapes and force struggle system
+
+## Credits
+
+- **Pan Xiaohai** - Original plugin
+- **cravenge** - Improvements  
+- **Yani** - Enhancements
+- **Community** - Testing and feedback
+
+## Links
+
+- **Original Thread**: https://forums.alliedmods.net/showthread.php?t=281620
+- **Repository**: https://github.com/janiluuk/L4D2_Self_Help
+- **Issues**: Report bugs via GitHub Issues
+
+## License
+
+This plugin is based on the original work by Pan Xiaohai and subsequent contributors. Please refer to the original AlliedModders thread for licensing information.
