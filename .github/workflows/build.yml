@@ -7,7 +7,7 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '30 03 01 */3 *' # Artifacts expire every 3 months
+    - cron: '30 03 01 */3 *' # Run quarterly to keep workflow active
 
 jobs:
   build:
@@ -82,7 +82,7 @@ jobs:
 
       - name: Upload release assets
         if: github.event_name == 'release' && runner.os == 'Linux'
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             package/addons/sourcemod/plugins/*.smx
