@@ -30,12 +30,12 @@ This SourceMod plugin enhances survivor gameplay by allowing players to help the
 
 ## Installation
 
-1. **Compile** the plugin using the SourceMod compiler:
-   ```bash
-   spcomp l4d2_predicaments.sp
-   ```
+### Pre-compiled Version
 
-2. **Install** the compiled plugin:
+1. **Download** the latest compiled plugin from the [Releases](https://github.com/janiluuk/L4D2_Predicaments/releases) page
+   - Or use the pre-compiled `l4d2_predicaments.smx` from this repository
+
+2. **Install** the files:
    - Copy `l4d2_predicaments.smx` to `addons/sourcemod/plugins/`
    - Copy `gamedata/l4d2_predicaments.txt` to `addons/sourcemod/gamedata/`
 
@@ -43,6 +43,48 @@ This SourceMod plugin enhances survivor gameplay by allowing players to help the
 
 4. **Configure** (optional):
    - Edit `cfg/sourcemod/l4d2_predicaments.cfg` (auto-generated on first load)
+
+### Building from Source
+
+#### Requirements
+- SourceMod 1.10 or higher
+- SourceMod compiler (spcomp)
+
+#### Manual Compilation
+
+1. **Download SourceMod**:
+   ```bash
+   # For Linux
+   wget https://sm.alliedmods.net/smdrop/1.12/sourcemod-1.12.0-git7219-linux.tar.gz
+   tar -xzf sourcemod-1.12.0-git7219-linux.tar.gz
+   
+   # For Windows
+   # Download from https://www.sourcemod.net/downloads.php
+   ```
+
+2. **Compile the plugin**:
+   ```bash
+   # Linux/Mac
+   ./addons/sourcemod/scripting/spcomp l4d2_predicaments.sp -o l4d2_predicaments.smx
+   
+   # Windows
+   addons\sourcemod\scripting\spcomp.exe l4d2_predicaments.sp -o l4d2_predicaments.smx
+   ```
+
+3. **Install** as described in the Pre-compiled Version section above
+
+#### Automated Build (GitHub Actions)
+
+This repository includes a GitHub Actions workflow that automatically compiles the plugin:
+
+- **Triggers**: Push, Pull Request, Manual Dispatch, Quarterly Schedule
+- **Platforms**: Ubuntu (Linux) and Windows
+- **Artifacts**: Compiled plugins are available as workflow artifacts
+
+To use the automated build:
+1. Fork this repository
+2. Push your changes or manually trigger the workflow
+3. Download the compiled plugin from the workflow artifacts
 
 ## Configuration
 
@@ -229,6 +271,27 @@ To use the API in your plugin, include the header file:
 
 The include file (`l4d2_predicaments.inc`) should be placed in `addons/sourcemod/scripting/include/`
 
+## Performance Considerations
+
+This plugin has been optimized for performance with the following improvements:
+
+### Optimization Strategies
+- **Cached Property Lookups**: Entity properties are cached to avoid redundant GetEntProp calls
+- **Early Exit Conditions**: Functions return early when conditions aren't met to minimize processing
+- **Efficient Loop Logic**: Player iteration loops use optimized validation checks
+- **Reduced Timer Overhead**: Timer callbacks include early validation to skip unnecessary work
+
+### Performance Impact
+The plugin uses several mechanisms that run frequently:
+- `OnPlayerRunCmd`: Called every frame for player input handling (crawling, bot behavior)
+- `RecordLastPosition`: Runs every 0.1 seconds to track survivor positions
+- `AnalyzePlayerState`: Per-player timer (0.1s) for monitoring incapacitation state
+
+### Recommendations for High-Performance Servers
+- Disable crawling if not needed: `l4d2_predicament_crawl_enable "0"`
+- Limit bot self-help if server has many bots: `l4d2_predicament_bot "0"`
+- Increase timer intervals if experiencing performance issues (requires source modification)
+
 ## Compatibility
 
 - **Left 4 Dead**: Fully supported
@@ -255,17 +318,20 @@ A: Make sure `l4d2_predicament_struggle_mode` is set to `1` or `2`, and `l4d2_pr
 **Q: Players can use items to escape pins even with struggle mode enabled**  
 A: Set `l4d2_predicament_kill_attacker "2"` to disable item-based escapes and force struggle system
 
+**Q: Server experiencing performance issues with many players**  
+A: Try disabling crawling and bot self-help features, or reduce the number of active features
+
 ## Credits
 
 - **Pan Xiaohai** - Original plugin
 - **cravenge** - Improvements  
-- **Yani** - Enhancements
+- **Yani** - Enhancements and performance optimizations
 - **Community** - Testing and feedback
 
 ## Links
 
 - **Original Thread**: https://forums.alliedmods.net/showthread.php?t=281620
-- **Repository**: https://github.com/janiluuk/L4D2_Self_Help
+- **Repository**: https://github.com/janiluuk/L4D2_Predicaments
 - **Issues**: Report bugs via GitHub Issues
 
 ## License
