@@ -3,6 +3,7 @@
 #include <sdktools>
 
 #define PLUGIN_VERSION "0.4"
+#define BASE_INCAP_SPEED 85.0
 
 enum SelfHelpState
 {
@@ -1348,7 +1349,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 				float fLength = SquareRoot(vMove[0] * vMove[0] + vMove[1] * vMove[1]);
 				if (fLength > 0.0)
 				{
-					float fCrawlVelocity = 85.0 * fCrawlSpeed; // Base incap speed is around 85
+					float fCrawlVelocity = BASE_INCAP_SPEED * fCrawlSpeed;
 					vMove[0] = (vMove[0] / fLength) * fCrawlVelocity;
 					vMove[1] = (vMove[1] / fLength) * fCrawlVelocity;
 					vMove[2] = vVelocity[2]; // Keep vertical velocity
