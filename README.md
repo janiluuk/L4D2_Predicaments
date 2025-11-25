@@ -5,6 +5,39 @@ This repository provides two SourceMod plugins that let survivors rescue themsel
 - **`l4d_selfhelp_bot.sp`** – legacy plugin with optional bot self-revival and adrenaline rush support.
 - **`self_help_dlr.sp`** – newer "Reloaded" version (DLR edition) that adds incap item pickup, self-healing while downed, and smarter bot behaviour.
 
+## Which Plugin Should You Use?
+
+**TL;DR: Use `self_help_dlr.sp` (DLR edition) - it's better and has more features.**
+
+The **`self_help_dlr.sp`** (DLR Reloaded edition) is the **recommended and superior choice**. It includes all the functionality of the legacy plugin plus many additional features and improvements. The legacy `l4d_selfhelp_bot.sp` is only kept for backwards compatibility.
+
+### Feature Comparison
+
+| Feature | self_help_dlr.sp (DLR) | l4d_selfhelp_bot.sp (Legacy) |
+|---------|:----------------------:|:----------------------------:|
+| Self-revive with pills/adrenaline | ✅ | ✅ |
+| Self-revive with medkit | ✅ | ✅ |
+| Bot self-revival | ✅ | ✅ |
+| Adrenaline rush support | ✅ | ✅ |
+| Pick up items while incapacitated | ✅ | ❌ |
+| Struggle mechanic when pinned | ✅ | ❌ |
+| Attacker counter-struggle | ✅ | ❌ |
+| Configurable struggle effects | ✅ | ❌ |
+| Help other incapped players (R key) | ✅ | ✅ |
+| Smart item usage (prioritize pills over medkit) | ✅ | ❌ |
+| Better progress bar visuals | ✅ | ⚠️ Basic |
+| Configurable attacker punishment | ✅ (3 options) | ⚠️ (2 options) |
+| Colored chat messages | ✅ | ❌ |
+| More granular ConVar options | ✅ | ⚠️ Limited |
+| L4D1 and L4D2 support | ✅ | ✅ |
+
+**Key advantages of DLR edition:**
+- **Struggle mechanic**: Survivors can mash crouch to break free from SI, while attackers can fight back
+- **Item pickup while downed**: Can grab nearby health items even when incapacitated
+- **Smarter healing**: Automatically chooses the best item for the situation (pills vs medkit)
+- **Better feedback**: Colored chat messages and improved progress indicators
+- **More control**: Extensive ConVar options for fine-tuning gameplay
+
 ## Features at a Glance
 
 - Self-unpin from grabs, pounces, rides, and ledge hangs by consuming pills or first-aid kits.
@@ -18,10 +51,18 @@ This repository provides two SourceMod plugins that let survivors rescue themsel
 
 ## Installation
 
-1. Compile the desired plugin (`l4d_selfhelp_bot.sp` or `self_help_dlr.sp`) with the SourceMod compiler.
+**Recommended: Install the DLR edition for the best experience.**
+
+1. Compile the desired plugin with the SourceMod compiler:
+   - **Recommended**: `self_help_dlr.sp` (DLR edition)
+   - Legacy alternative: `l4d_selfhelp_bot.sp` (if you need backwards compatibility)
 2. Copy the resulting `.smx` file into your server's `addons/sourcemod/plugins/` directory.
-3. Place the provided game data file from `gamedata/` into `addons/sourcemod/gamedata/`.
+3. Place the provided game data file from `gamedata/` into `addons/sourcemod/gamedata/`:
+   - For DLR edition: `self_help.txt`
+   - For legacy edition: `l4d_selfhelp_bot.txt`
 4. Restart the server or change the map.
+
+**Note**: Only install ONE of the two plugins, not both! They serve the same purpose and will conflict.
 
 ## Key ConVars
 
@@ -52,3 +93,14 @@ After changing any ConVar, use `sm_cvar <name> <value>` or place them in `cfg/so
 - The DLR edition automatically detects Left 4 Dead vs Left 4 Dead 2 and adjusts available features.
 - If you only need bot revival support without the newer mechanics, stick with `l4d_selfhelp_bot.smx`.
 - For detailed discussion and community feedback, see the original AlliedModders thread: https://forums.alliedmods.net/showthread.php?t=281620
+
+## Conclusion
+
+**The `self_help_dlr.sp` (DLR Reloaded edition) is the superior plugin in every way.** It has more features, better configurability, improved user experience, and active development. Unless you have a specific reason to use the legacy version (such as compatibility with existing server configurations), you should use the DLR edition.
+
+The legacy `l4d_selfhelp_bot.sp` remains in this repository only for:
+- Server administrators who need to maintain backwards compatibility
+- Historical reference and comparison purposes
+- Users who prefer the simpler, more minimal approach
+
+For new installations, **always choose `self_help_dlr.sp`**.
