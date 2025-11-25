@@ -5,7 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: '30 03 01 */3 *' # Artifacts expire every 3 months
+    - cron: '30 03 01 */3 *' # Quarterly scheduled build
 
 jobs:
   build:
@@ -62,9 +62,6 @@ jobs:
           package_gamedata_dir="$GITHUB_WORKSPACE/package/addons/sourcemod/gamedata"
 
           mkdir -p "$package_plugins_dir" "$package_gamedata_dir"
-
-          # Ensure previous outputs do not linger between runs
-          rm -f "$package_plugins_dir"/*.smx
 
           # Compile all .sp files in root directory
           for sp in *.sp; do
