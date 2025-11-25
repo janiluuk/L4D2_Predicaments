@@ -340,13 +340,13 @@ public Action RecordLastPosition(Handle timer)
 	
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		// Combined validation checks
+		// Validate client is in game
 		if (!IsClientInGame(i))
 		{
 			continue;
 		}
 		
-		// Cache team check result
+		// Check if survivor team
 		if (GetClientTeam(i) != 2)
 		{
 			continue;
@@ -661,8 +661,8 @@ public Action AnalyzePlayerState(Handle timer, any userid)
 			}
 		}
 		
-		// Validate target before processing
-		if (iTarget > 0 && IsClientInGame(iTarget) && IsPlayerAlive(iTarget))
+		// Process target if found
+		if (iTarget > 0)
 		{
 			if (shsBit[client] == SHS_NONE || shsBit[client] == SHS_CONTINUE)
 			{
@@ -1390,8 +1390,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 		if (bIsIncapped && iAttacker[client] == 0)
 		{
 			// Check for any movement buttons before processing
-			int movementButtons = buttons & (IN_FORWARD | IN_BACK | IN_MOVELEFT | IN_MOVERIGHT);
-			if (movementButtons)
+			if (buttons & (IN_FORWARD | IN_BACK | IN_MOVELEFT | IN_MOVERIGHT))
 			{
 				float vVelocity[3];
 				GetEntPropVector(client, Prop_Data, "m_vecVelocity", vVelocity);
@@ -1492,7 +1491,7 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 			}
 		}
 		
-		if (iTarget > 0 && IsClientInGame(iTarget) && IsPlayerAlive(iTarget))
+		if (iTarget > 0)
 		{
 			buttons |= IN_RELOAD;
 		}
