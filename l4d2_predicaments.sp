@@ -14,16 +14,12 @@ enum SelfHelpState
 };
 
 ConVar shEnable, shUse, shIncapPickup, shDelay, shKillAttacker, shBot, shBotChance, shHardHP,
-        shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration,
-        shStruggleMode, shStruggleGain, shStrugglePushback, shStruggleEscapeEffect;
+	shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration, shCrawlEnable, shCrawlSpeed;
 
-bool bIsL4D, bEnabled, bIncapPickup, bKillAttacker, bBot;
-float fAdrenalineDuration, fDelay, fTempHP, fStruggleGain, fStrugglePushback, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1],
-        fStruggleProgress[MAXPLAYERS+1], fLastStruggleInput[MAXPLAYERS+1], fLastStruggleAlert[MAXPLAYERS+1];
+bool bIsL4D, bEnabled, bIncapPickup, bKillAttacker, bBot, bCrawlEnable;
+float fAdrenalineDuration, fDelay, fTempHP, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1], fCrawlSpeed;
 int iSurvivorClass, iKillAttacker, iUse, iBotChance, iHardHP, iMaxCount, iAttacker[MAXPLAYERS+1],
-        iBotHelp[MAXPLAYERS+1], iReviveDuration, iMaxIncapCount, iSHCount[MAXPLAYERS+1], iStruggleMode,
-        iStruggleEscapeEffect;
-bool bWasCrouching[MAXPLAYERS+1], bAttackerWasSprinting[MAXPLAYERS+1];
+	iBotHelp[MAXPLAYERS+1], iReviveDuration, iMaxIncapCount, iSHCount[MAXPLAYERS+1];
 
 Handle hSHTime[MAXPLAYERS+1] = null, hSHGameData = null, hSHSetTempHP = null, hSHAdrenalineRush = null,
 	hSHOnRevived = null, hSHStagger = null;
@@ -144,20 +140,18 @@ public void OnPluginStart()
 		cvarAdrenalineDuration.AddChangeHook(OnSHCVarsChanged);
 	}
 	
-	CreateConVar("l4d2_predicaments_version", PLUGIN_VERSION, "L4D2 Predicaments Version", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_DONTRECORD);
-	shEnable = CreateConVar("l4d2_predicament_enable", "1", "Enable/Disable Plugin", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-	shUse = CreateConVar("l4d2_predicament_use", "3", "Use: 0=None, 1=Pills And Adrenalines, 2=First Aid Kits Only, 3=Both", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 3.0);
-	shIncapPickup = CreateConVar("l4d2_predicament_incap_pickup", "1", "Enable/Disable Item Pick-Ups While Incapacitated", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-        shDelay = CreateConVar("l4d2_predicament_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
-        shKillAttacker = CreateConVar("l4d2_predicament_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shStruggleMode = CreateConVar("l4d2_predicament_struggle_mode", "2", "Pinned behavior: 0=disabled, 1=hold crouch to revive, 2=mash crouch to struggle", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shStruggleGain = CreateConVar("l4d2_predicament_struggle_gain", "5.0", "Percent gained per crouch press while struggling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
-        shStrugglePushback = CreateConVar("l4d2_predicament_struggle_pushback", "2.5", "Percent lost per attacker sprint press", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
-        shStruggleEscapeEffect = CreateConVar("l4d2_predicament_struggle_effect", "0", "On struggle escape: 0=nothing extra, 1=kill attacker, 2=knock both back", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shBot = CreateConVar("l4d2_predicament_bot", "1", "Enable/Disable Bot Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-        shBotChance = CreateConVar("l4d2_predicament_bot_chance", "4", "Chance Of Bot Revival: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
-        shHardHP = CreateConVar("l4d2_predicament_hard_hp", "50", "Health Given After Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
-	shTempHP = CreateConVar("l4d2_predicament_temp_hp", "50.0", "Temporary Health Given After Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	CreateConVar("self_help_version", PLUGIN_VERSION, "Self-Help (Reloaded) Version", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_DONTRECORD);
+	shEnable = CreateConVar("self_help_enable", "1", "Enable/Disable Plugin", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shUse = CreateConVar("self_help_use", "3", "Use: 0=None, 1=Pills And Adrenalines, 2=First Aid Kits Only, 3=Both", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 3.0);
+	shIncapPickup = CreateConVar("self_help_incap_pickup", "1", "Enable/Disable Item Pick-Ups While Incapacitated", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shDelay = CreateConVar("self_help_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
+	shKillAttacker = CreateConVar("self_help_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+	shBot = CreateConVar("self_help_bot", "1", "Enable/Disable Bot Self-Help", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shBotChance = CreateConVar("self_help_bot_chance", "4", "Chance Of Bot Self-Helping: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
+	shHardHP = CreateConVar("self_help_hard_hp", "50", "Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	shTempHP = CreateConVar("self_help_temp_hp", "50.0", "Temporary Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	shCrawlEnable = CreateConVar("self_help_crawl_enable", "1", "Enable/Disable Incapped Crawling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shCrawlSpeed = CreateConVar("self_help_crawl_speed", "0.15", "Crawling Speed Multiplier (0.0 - 1.0)", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
 	
 	if (bIsL4D)
 	{
@@ -178,24 +172,24 @@ public void OnPluginStart()
         iKillAttacker = shKillAttacker.IntValue;
 
 	bBot = shBot.BoolValue;
+	bCrawlEnable = shCrawlEnable.BoolValue;
 	
 	fDelay = shDelay.FloatValue;
 	fTempHP = shTempHP.FloatValue;
+	fCrawlSpeed = shCrawlSpeed.FloatValue;
 	
-        shEnable.AddChangeHook(OnSHCVarsChanged);
-        shUse.AddChangeHook(OnSHCVarsChanged);
-        shIncapPickup.AddChangeHook(OnSHCVarsChanged);
-        shDelay.AddChangeHook(OnSHCVarsChanged);
-        shKillAttacker.AddChangeHook(OnSHCVarsChanged);
-        shStruggleMode.AddChangeHook(OnSHCVarsChanged);
-        shStruggleGain.AddChangeHook(OnSHCVarsChanged);
-        shStrugglePushback.AddChangeHook(OnSHCVarsChanged);
-        shStruggleEscapeEffect.AddChangeHook(OnSHCVarsChanged);
+	shEnable.AddChangeHook(OnSHCVarsChanged);
+	shUse.AddChangeHook(OnSHCVarsChanged);
+	shIncapPickup.AddChangeHook(OnSHCVarsChanged);
+	shDelay.AddChangeHook(OnSHCVarsChanged);
+	shKillAttacker.AddChangeHook(OnSHCVarsChanged);
 
-        shBot.AddChangeHook(OnSHCVarsChanged);
-        shBotChance.AddChangeHook(OnSHCVarsChanged);
-        shHardHP.AddChangeHook(OnSHCVarsChanged);
-        shTempHP.AddChangeHook(OnSHCVarsChanged);
+	shBot.AddChangeHook(OnSHCVarsChanged);
+	shBotChance.AddChangeHook(OnSHCVarsChanged);
+	shHardHP.AddChangeHook(OnSHCVarsChanged);
+	shTempHP.AddChangeHook(OnSHCVarsChanged);
+	shCrawlEnable.AddChangeHook(OnSHCVarsChanged);
+	shCrawlSpeed.AddChangeHook(OnSHCVarsChanged);
 	
 	AutoExecConfig(true, "l4d2_predicaments");
 	
@@ -263,17 +257,17 @@ public void OnSHCVarsChanged(ConVar cvar, const char[] sOldValue, const char[] s
         bKillAttacker = shKillAttacker.BoolValue;
         iKillAttacker = shKillAttacker.IntValue;
 
-        bBot = shBot.BoolValue;
-
-        fDelay = shDelay.FloatValue;
-        fTempHP = shTempHP.FloatValue;
-        fStruggleGain = shStruggleGain.FloatValue;
-        fStrugglePushback = shStrugglePushback.FloatValue;
-
-        if (bIsL4D)
-        {
-                iMaxCount = shMaxCount.IntValue;
-        }
+	bBot = shBot.BoolValue;
+	bCrawlEnable = shCrawlEnable.BoolValue;
+	
+	fDelay = shDelay.FloatValue;
+	fTempHP = shTempHP.FloatValue;
+	fCrawlSpeed = shCrawlSpeed.FloatValue;
+	
+	if (bIsL4D)
+	{
+		iMaxCount = shMaxCount.IntValue;
+	}
 }
 
 public Action OnSHSoundsFix(int clients[MAXPLAYERS], int &numClients, char sample[PLATFORM_MAX_PATH], int &entity, int &channel, float &volume, int &level, int &pitch, int &flags, char soundEntry[PLATFORM_MAX_PATH], int &seed)
@@ -1303,125 +1297,137 @@ public Action DelaySHNotify(Handle timer, Handle dpDefibAnnounce)
 
 public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3], float angles[3], int &weapon)
 {
-        if (!bEnabled)
-        {
-                return Plugin_Continue;
-        }
-
-        HandleStruggle(client, buttons);
-
-        if (!bBot)
-        {
-                return Plugin_Continue;
-        }
-
-        if (IsSurvivor(client))
-        {
-                if (!IsPlayerAlive(client) || !IsFakeClient(client) || iBotHelp[client] == 0)
-                {
-                        return Plugin_Continue;
-                }
-
-                if (GetEntProp(client, Prop_Send, "m_isIncapacitated", 1))
-                {
-                        int iTarget = 0;
-                        float fPlayerPos[2][3];
-
-                        GetEntPropVector(client, Prop_Send, "m_vecOrigin", fPlayerPos[0]);
-                        for (int i = 1; i <= MaxClients; i++)
-                        {
-                                if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i) || i == client || iAttacker[i] != 0)
-                                {
-                                        continue;
-                                }
-
-                                if (GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_reviveOwner") < 1)
-                                {
-                                        GetEntPropVector(i, Prop_Send, "m_vecOrigin", fPlayerPos[1]);
-
-                                        if (GetVectorDistance(fPlayerPos[0], fPlayerPos[1]) > 100.0)
-                                        {
-                                                continue;
-                                        }
-
-                                        iTarget = i;
-                                        break;
-                                }
-                        }
-                        if (IsSurvivor(iTarget) && IsPlayerAlive(iTarget) && GetEntProp(iTarget, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(iTarget, Prop_Send, "m_reviveOwner") < 1)
-                        {
-                                buttons |= IN_RELOAD;
-                        }
-                        else
-                        {
-                                if (buttons & IN_RELOAD)
-                                {
-                                        buttons ^= IN_RELOAD;
-                                }
-
-                                if (IsSelfHelpAble(client))
-                                {
-                                        buttons |= IN_DUCK;
-                                }
-                        }
-                }
-                else if (iAttacker[client] != 0)
-                {
-                        if (!IsSelfHelpAble(client))
-                        {
-                                return Plugin_Continue;
-                        }
-
-                        buttons |= IN_DUCK;
-                }
-        }
-
-        return Plugin_Continue;
+	if (!bEnabled)
+	{
+		return Plugin_Continue;
+	}
+	
+	// Handle incapped crawling for all players
+	if (bCrawlEnable && IsSurvivor(client) && IsPlayerAlive(client))
+	{
+		if (GetEntProp(client, Prop_Send, "m_isIncapacitated", 1) && iAttacker[client] == 0)
+		{
+			// Allow crawling movement when incapped and not grabbed
+			if (buttons & IN_FORWARD || buttons & IN_BACK || buttons & IN_MOVELEFT || buttons & IN_MOVERIGHT)
+			{
+				float vVelocity[3];
+				GetEntPropVector(client, Prop_Data, "m_vecVelocity", vVelocity);
+				
+				// Calculate movement direction from angles
+				float vForward[3], vRight[3];
+				GetAngleVectors(angles, vForward, vRight, NULL_VECTOR);
+				
+				float vMove[3];
+				vMove[0] = 0.0;
+				vMove[1] = 0.0;
+				vMove[2] = 0.0;
+				
+				// Apply movement based on button inputs
+				if (buttons & IN_FORWARD)
+				{
+					vMove[0] += vForward[0];
+					vMove[1] += vForward[1];
+				}
+				if (buttons & IN_BACK)
+				{
+					vMove[0] -= vForward[0];
+					vMove[1] -= vForward[1];
+				}
+				if (buttons & IN_MOVELEFT)
+				{
+					vMove[0] -= vRight[0];
+					vMove[1] -= vRight[1];
+				}
+				if (buttons & IN_MOVERIGHT)
+				{
+					vMove[0] += vRight[0];
+					vMove[1] += vRight[1];
+				}
+				
+				// Normalize and scale by crawl speed
+				float fLength = SquareRoot(vMove[0] * vMove[0] + vMove[1] * vMove[1]);
+				if (fLength > 0.0)
+				{
+					float fCrawlVelocity = 85.0 * fCrawlSpeed; // Base incap speed is around 85
+					vMove[0] = (vMove[0] / fLength) * fCrawlVelocity;
+					vMove[1] = (vMove[1] / fLength) * fCrawlVelocity;
+					vMove[2] = vVelocity[2]; // Keep vertical velocity
+					
+					TeleportEntity(client, NULL_VECTOR, NULL_VECTOR, vMove);
+				}
+			}
+		}
+	}
+	
+	// Bot self-help behavior
+	if (!bBot)
+	{
+		return Plugin_Continue;
+	}
+	
+	if (IsSurvivor(client))
+	{
+		if (!IsPlayerAlive(client) || !IsFakeClient(client) || iBotHelp[client] == 0)
+		{
+			return Plugin_Continue;
+		}
+		
+		if (GetEntProp(client, Prop_Send, "m_isIncapacitated", 1))
+		{
+			int iTarget = 0;
+			float fPlayerPos[2][3];
+			
+			GetEntPropVector(client, Prop_Send, "m_vecOrigin", fPlayerPos[0]);
+			for (int i = 1; i <= MaxClients; i++)
+			{
+				if (!IsClientInGame(i) || GetClientTeam(i) != 2 || !IsPlayerAlive(i) || i == client || iAttacker[i] != 0)
+				{
+					continue;
+				}
+				
+				if (GetEntProp(i, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(i, Prop_Send, "m_reviveOwner") < 1)
+				{
+					GetEntPropVector(i, Prop_Send, "m_vecOrigin", fPlayerPos[1]);
+					
+					if (GetVectorDistance(fPlayerPos[0], fPlayerPos[1]) > 100.0)
+					{
+						continue;
+					}
+					
+					iTarget = i;
+					break;
+				}
+			}
+			if (IsSurvivor(iTarget) && IsPlayerAlive(iTarget) && GetEntProp(iTarget, Prop_Send, "m_isIncapacitated", 1) && GetEntProp(iTarget, Prop_Send, "m_reviveOwner") < 1)
+			{
+				buttons |= IN_RELOAD;
+			}
+			else
+			{
+				if (buttons & IN_RELOAD)
+				{
+					buttons ^= IN_RELOAD;
+				}
+				
+				if (IsSelfHelpAble(client))
+				{
+					buttons |= IN_DUCK;
+				}
+			}
+		}
+		else if (iAttacker[client] != 0)
+		{
+			if (!IsSelfHelpAble(client))
+			{
+				return Plugin_Continue;
+			}
+			
+			buttons |= IN_DUCK;
+		}
+	}
+	
+	return Plugin_Continue;
 }
-
-void HandleStruggle(int client, int &buttons)
-{
-        if (!IsValidClient(client) || !IsPlayerAlive(client) || iStruggleMode == 0)
-        {
-                return;
-        }
-
-        float fGameTime = GetGameTime();
-
-        if (IsSurvivor(client))
-        {
-                        int dominator = iAttacker[client];
-                        if (dominator == 0 || !IsValidClient(dominator) || GetClientTeam(dominator) != 3 || !IsPlayerAlive(dominator))
-                        {
-                                if (fStruggleProgress[client] > 0.0)
-                                {
-                                        ClearStruggleBar(client);
-                                }
-                                fStruggleProgress[client] = 0.0;
-                                bWasCrouching[client] = false;
-                                return;
-                        }
-
-                        if (iStruggleMode != 2)
-                        {
-                                return;
-                        }
-                        
-                        // Check if the client can struggle using the forward
-                        bool canStruggle = true;
-                        if (g_hForwardCanStruggle != null)
-                        {
-                                Action result = Plugin_Continue;
-                                Call_StartForward(g_hForwardCanStruggle);
-                                Call_PushCell(client);
-                                Call_PushCellRef(canStruggle);
-                                Call_Finish(result);
-                                
-                                if ((result == Plugin_Handled || result == Plugin_Stop) && !canStruggle)
-                                {
-                                        return;
-                                }
-                        }
 
                         if (fGameTime - fLastStruggleInput[client] > 1.0 && fStruggleProgress[client] > 0.0)
                         {
