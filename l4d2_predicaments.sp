@@ -5,6 +5,19 @@
 #define PLUGIN_VERSION "0.4"
 #define BASE_INCAP_SPEED 85.0
 
+/*
+ * Performance Optimizations:
+ * - Cached entity property lookups to reduce GetEntProp calls
+ * - Early exit conditions in frame-based callbacks (OnPlayerRunCmd)
+ * - Optimized player iteration loops with better validation order
+ * - Reduced redundant property checks in timer callbacks
+ * 
+ * Key Performance Considerations:
+ * - OnPlayerRunCmd runs every frame for all players
+ * - RecordLastPosition timer runs every 0.1s for all survivors
+ * - AnalyzePlayerState timer runs per-player every 0.1s when incapacitated
+ */
+
 enum SelfHelpState
 {
 	SHS_NONE = 0,
