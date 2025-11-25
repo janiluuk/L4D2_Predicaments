@@ -4,6 +4,8 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  release:
+    types: [published]
   schedule:
     - cron: '30 03 01 */3 *' # Artifacts expire every 3 months
 
@@ -77,3 +79,13 @@ jobs:
         with:
           name: l4d2_self_help-sm1.12.0-git7219-${{ matrix.os_short }}-${{ env.GITHUB_SHA_SHORT }}
           path: package
+
+      - name: Upload release assets
+        if: github.event_name == 'release' && runner.os == 'Linux'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            package/addons/sourcemod/plugins/*.smx
+            package/addons/sourcemod/gamedata/*.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
