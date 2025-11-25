@@ -13,6 +13,8 @@ jobs:
   build:
     name: build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write  # Required for uploading release assets
     strategy:
       fail-fast: false
       matrix:
