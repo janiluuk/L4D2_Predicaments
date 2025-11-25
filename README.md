@@ -32,7 +32,7 @@ The **`self_help_dlr.sp`** (DLR Reloaded edition) is the **recommended and super
 | L4D1 and L4D2 support | ✅ | ✅ |
 
 **Key advantages of DLR edition:**
-- **Struggle mechanic**: Survivors can mash crouch to break free from SI, while attackers can fight back
+- **Struggle mechanic**: Survivors can mash crouch to break free from Special Infected (SI), while attackers can fight back
 - **Item pickup while downed**: Can grab nearby health items even when incapacitated
 - **Smarter healing**: Automatically chooses the best item for the situation (pills vs medkit)
 - **Better feedback**: Colored chat messages and improved progress indicators
@@ -96,7 +96,7 @@ After changing any ConVar, use `sm_cvar <name> <value>` or place them in `cfg/so
 
 ## Conclusion
 
-**The `self_help_dlr.sp` (DLR Reloaded edition) is the superior plugin in every way.** It has more features, better configurability, improved user experience, and active development. Unless you have a specific reason to use the legacy version (such as compatibility with existing server configurations), you should use the DLR edition.
+**The `self_help_dlr.sp` (DLR Reloaded edition) is the superior plugin in every way.** It has more features, better configurability, and improved user experience. Unless you have a specific reason to use the legacy version (such as compatibility with existing server configurations), you should use the DLR edition.
 
 The legacy `l4d_selfhelp_bot.sp` remains in this repository only for:
 - Server administrators who need to maintain backwards compatibility
