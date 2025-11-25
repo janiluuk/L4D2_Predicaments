@@ -15,12 +15,17 @@ enum SelfHelpState
 };
 
 ConVar shEnable, shUse, shIncapPickup, shDelay, shKillAttacker, shBot, shBotChance, shHardHP,
-	shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration, shCrawlEnable, shCrawlSpeed;
+	shTempHP, shMaxCount, cvarReviveDuration, cvarMaxIncapCount, cvarAdrenalineDuration, shCrawlEnable, shCrawlSpeed,
+	shStruggleMode, shStruggleGain, shStrugglePushback, shStruggleAlertInterval, shStruggleEscapeEffect;
 
 bool bIsL4D, bEnabled, bIncapPickup, bKillAttacker, bBot, bCrawlEnable;
-float fAdrenalineDuration, fDelay, fTempHP, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1], fCrawlSpeed;
+float fAdrenalineDuration, fDelay, fTempHP, fLastPos[MAXPLAYERS+1][3], fSelfHelpTime[MAXPLAYERS+1], fCrawlSpeed,
+	fStruggleProgress[MAXPLAYERS+1], fLastStruggleInput[MAXPLAYERS+1], fLastStruggleAlert[MAXPLAYERS+1],
+	fStruggleGain, fStrugglePushback, fStruggleAlertInterval;
 int iSurvivorClass, iKillAttacker, iUse, iBotChance, iHardHP, iMaxCount, iAttacker[MAXPLAYERS+1],
-	iBotHelp[MAXPLAYERS+1], iReviveDuration, iMaxIncapCount, iSHCount[MAXPLAYERS+1];
+	iBotHelp[MAXPLAYERS+1], iReviveDuration, iMaxIncapCount, iSHCount[MAXPLAYERS+1],
+	iStruggleMode, iStruggleEscapeEffect;
+bool bWasCrouching[MAXPLAYERS+1], bAttackerWasSprinting[MAXPLAYERS+1];
 
 Handle hSHTime[MAXPLAYERS+1] = null, hSHGameData = null, hSHSetTempHP = null, hSHAdrenalineRush = null,
 	hSHOnRevived = null, hSHStagger = null;
@@ -153,6 +158,11 @@ public void OnPluginStart()
 	shTempHP = CreateConVar("self_help_temp_hp", "50.0", "Temporary Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
 	shCrawlEnable = CreateConVar("self_help_crawl_enable", "1", "Enable/Disable Incapped Crawling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
 	shCrawlSpeed = CreateConVar("self_help_crawl_speed", "0.15", "Crawling Speed Multiplier (0.0 - 1.0)", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shStruggleMode = CreateConVar("self_help_struggle_mode", "0", "0=Disabled, 1=Automatic escape, 2=Manual struggle", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+	shStruggleGain = CreateConVar("self_help_struggle_gain", "10.0", "Progress gained per struggle input", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.1);
+	shStrugglePushback = CreateConVar("self_help_struggle_pushback", "5.0", "Progress lost when attacker counters", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0);
+	shStruggleAlertInterval = CreateConVar("self_help_struggle_alert_interval", "3.0", "Seconds between alerting attacker", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0);
+	shStruggleEscapeEffect = CreateConVar("self_help_struggle_escape_effect", "0", "0=Stagger attacker, 1=Kill attacker, 2=Incap attacker", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
 	
 	if (bIsL4D)
 	{
@@ -178,6 +188,9 @@ public void OnPluginStart()
 	fDelay = shDelay.FloatValue;
 	fTempHP = shTempHP.FloatValue;
 	fCrawlSpeed = shCrawlSpeed.FloatValue;
+	fStruggleGain = shStruggleGain.FloatValue;
+	fStrugglePushback = shStrugglePushback.FloatValue;
+	fStruggleAlertInterval = shStruggleAlertInterval.FloatValue;
 	
 	shEnable.AddChangeHook(OnSHCVarsChanged);
 	shUse.AddChangeHook(OnSHCVarsChanged);
@@ -191,6 +204,11 @@ public void OnPluginStart()
 	shTempHP.AddChangeHook(OnSHCVarsChanged);
 	shCrawlEnable.AddChangeHook(OnSHCVarsChanged);
 	shCrawlSpeed.AddChangeHook(OnSHCVarsChanged);
+	shStruggleMode.AddChangeHook(OnSHCVarsChanged);
+	shStruggleGain.AddChangeHook(OnSHCVarsChanged);
+	shStrugglePushback.AddChangeHook(OnSHCVarsChanged);
+	shStruggleAlertInterval.AddChangeHook(OnSHCVarsChanged);
+	shStruggleEscapeEffect.AddChangeHook(OnSHCVarsChanged);
 	
 	AutoExecConfig(true, "l4d2_predicaments");
 	
@@ -264,6 +282,9 @@ public void OnSHCVarsChanged(ConVar cvar, const char[] sOldValue, const char[] s
 	fDelay = shDelay.FloatValue;
 	fTempHP = shTempHP.FloatValue;
 	fCrawlSpeed = shCrawlSpeed.FloatValue;
+	fStruggleGain = shStruggleGain.FloatValue;
+	fStrugglePushback = shStrugglePushback.FloatValue;
+	fStruggleAlertInterval = shStruggleAlertInterval.FloatValue;
 	
 	if (bIsL4D)
 	{
@@ -1430,59 +1451,6 @@ public Action OnPlayerRunCmd(int client, int &buttons, int &impulse, float vel[3
 	return Plugin_Continue;
 }
 
-                        if (fGameTime - fLastStruggleInput[client] > 1.0 && fStruggleProgress[client] > 0.0)
-                        {
-                                fStruggleProgress[client] = 0.0;
-                                ClearStruggleBar(client);
-                        }
-
-                        bool bPressed = (buttons & IN_DUCK) && !bWasCrouching[client];
-                        bWasCrouching[client] = ((buttons & IN_DUCK) != 0);
-
-                        if (bPressed)
-                        {
-                                fLastStruggleInput[client] = fGameTime;
-                                fStruggleProgress[client] += fStruggleGain;
-                                if (fStruggleProgress[client] > 100.0)
-                                {
-                                        fStruggleProgress[client] = 100.0;
-                                }
-
-                                UpdateStruggleBar(client);
-                                PrintHintText(client, "Mash CROUCH to break free!");
-                                AlertAttacker(dominator, client, fGameTime);
-
-                                if (fStruggleProgress[client] >= 100.0)
-                                {
-                                        HandleStruggleEscape(client, dominator);
-                                }
-                        }
-        }
-        else if (GetClientTeam(client) == 3)
-        {
-                        int grabbed = GetStruggleVictim(client);
-                        if (grabbed == 0 || fStruggleProgress[grabbed] <= 0.0 || iStruggleMode != 2)
-                        {
-                                bAttackerWasSprinting[client] = false;
-                                return;
-                        }
-
-                        bool bPressed = (buttons & IN_SPEED) && !bAttackerWasSprinting[client];
-                        bAttackerWasSprinting[client] = ((buttons & IN_SPEED) != 0);
-
-                        if (bPressed)
-                        {
-                                fStruggleProgress[grabbed] -= fStrugglePushback;
-                                if (fStruggleProgress[grabbed] < 0.0)
-                                {
-                                        fStruggleProgress[grabbed] = 0.0;
-                                }
-
-                                UpdateStruggleBar(grabbed);
-                        }
-        }
-}
-
 void AlertAttacker(int attacker, int client, float fGameTime)
 {
         if (!IsValidClient(attacker) || GetClientTeam(attacker) != 3 || IsFakeClient(attacker))
@@ -1490,7 +1458,7 @@ void AlertAttacker(int attacker, int client, float fGameTime)
                 return;
         }
 
-        if (fGameTime - fLastStruggleAlert[attacker] < 1.0)
+        if (fGameTime - fLastStruggleAlert[attacker] < fStruggleAlertInterval)
         {
                 return;
         }
