@@ -68,7 +68,7 @@ jobs:
           # Compile all .sp files in root directory
           for sp in *.sp; do
             if [ -f "$sp" ]; then
-              output_name="$(basename "${sp%.sp}.smx")"
+              output_name="${sp%.sp}.smx"
               "$spcomp" $includes -v0 "$sp" -o "$package_plugins_dir/$output_name"
             fi
           done
