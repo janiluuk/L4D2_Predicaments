@@ -67,19 +67,21 @@ jobs:
 
           mkdir -p "$package_plugins_dir" "$package_gamedata_dir"
 
-          # Compile l4d_selfhelp_bot.sp
-          "$spcomp" $includes -v0 "$GITHUB_WORKSPACE/l4d_selfhelp_bot.sp" -o "$package_plugins_dir/l4d_selfhelp_bot.smx"
-
-          # Compile self_help_dlr.sp
-          "$spcomp" $includes -v0 "$GITHUB_WORKSPACE/self_help_dlr.sp" -o "$package_plugins_dir/self_help_dlr.smx"
+          # Compile l4d2_predicaments.sp
+          "$spcomp" $includes -v0 "$GITHUB_WORKSPACE/l4d2_predicaments.sp" -o "$package_plugins_dir/l4d2_predicaments.smx"
 
           # Copy gamedata
-          cp "$GITHUB_WORKSPACE/gamedata/l4d_selfhelp_bot.txt" "$package_gamedata_dir/"
+          cp "$GITHUB_WORKSPACE/gamedata/l4d2_predicaments.txt" "$package_gamedata_dir/"
+          
+          # Copy include file for developers
+          package_include_dir="$GITHUB_WORKSPACE/package/addons/sourcemod/scripting/include"
+          mkdir -p "$package_include_dir"
+          cp "$GITHUB_WORKSPACE/l4d2_predicaments.inc" "$package_include_dir/"
 
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: l4d2_self_help-sm1.12.0-git7219-${{ matrix.os_short }}-${{ env.GITHUB_SHA_SHORT }}
+          name: l4d2_predicaments-sm1.12.0-git7219-${{ matrix.os_short }}-${{ env.GITHUB_SHA_SHORT }}
           path: package
 
       - name: Upload release assets
@@ -89,5 +91,6 @@ jobs:
           files: |
             package/addons/sourcemod/plugins/*.smx
             package/addons/sourcemod/gamedata/*.txt
+            package/addons/sourcemod/scripting/include/*.inc
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

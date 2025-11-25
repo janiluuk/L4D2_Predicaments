@@ -28,6 +28,10 @@ bool bWasCrouching[MAXPLAYERS+1], bAttackerWasSprinting[MAXPLAYERS+1];
 Handle hSHTime[MAXPLAYERS+1] = null, hSHGameData = null, hSHSetTempHP = null, hSHAdrenalineRush = null,
 	hSHOnRevived = null, hSHStagger = null;
 
+// Global forwards for external plugin hooks
+Handle g_hForwardCanHealOthers = null;
+Handle g_hForwardCanStruggle = null;
+
 char sGameSounds[6][] =
 {
 	"music/terror/PuddleOfYou.wav",
@@ -45,31 +49,37 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	EngineVersion evRetVal = GetEngineVersion();
 	if (evRetVal != Engine_Left4Dead && evRetVal != Engine_Left4Dead2)
 	{
-		strcopy(error, err_max, "[SH] Plugin Supports L4D And L4D2 Only!");
+		strcopy(error, err_max, "[Predicaments] Plugin Supports L4D And L4D2 Only!");
 		return APLRes_SilentFailure;
 	}
 	
 	bIsL4D = (evRetVal == Engine_Left4Dead) ? true : false;
 	iSurvivorClass = (evRetVal == Engine_Left4Dead2) ? 9 : 6;
 	
+	// Create forwards for external plugins to hook into
+	CreateNative("Predicaments_CanHealOthers", Native_CanHealOthers);
+	CreateNative("Predicaments_CanStruggle", Native_CanStruggle);
+	
+	RegPluginLibrary("l4d2_predicaments");
+	
 	return APLRes_Success;
 }
 
 public Plugin myinfo =
 {
-	name = "Self-Help (Reloaded) - DLR edition",
+	name = "L4D2 Predicaments",
 	author = "yani, cravenge, panxiaohai",
-	description = "Lets Players Help Themselves When Troubled.",
+	description = "Lets Players Help Themselves When In Predicaments.",
 	version = PLUGIN_VERSION,
 	url = "https://forums.alliedmods.net/showthread.php?t=281620"
 };
 
 public void OnPluginStart()
 {
-	hSHGameData = LoadGameConfigFile("self_help");
+	hSHGameData = LoadGameConfigFile("l4d2_predicaments");
 	if (hSHGameData == null)
 	{
-		SetFailState("[SH] Game Data Missing!");
+		SetFailState("[Predicaments] Game Data Missing!");
 	}
 	
 	StartPrepSDKCall(SDKCall_Player);
@@ -79,7 +89,7 @@ public void OnPluginStart()
 	hSHStagger = EndPrepSDKCall();
 	if (hSHStagger == null)
 	{
-		SetFailState("[SH] Signature 'OnStaggered' Broken!");
+		SetFailState("[Predicaments] Signature 'OnStaggered' Broken!");
 	}
 	
 	if (!bIsL4D)
@@ -89,7 +99,7 @@ public void OnPluginStart()
 		hSHOnRevived = EndPrepSDKCall();
 		if (hSHOnRevived == null)
 		{
-			SetFailState("[SH] Signature 'OnRevived' Broken!");
+			SetFailState("[Predicaments] Signature 'OnRevived' Broken!");
 		}
 		
 		StartPrepSDKCall(SDKCall_Player);
@@ -98,7 +108,7 @@ public void OnPluginStart()
 		hSHSetTempHP = EndPrepSDKCall();
 		if (hSHSetTempHP == null)
 		{
-			SetFailState("[SH] Signature 'SetHealthBuffer' Broken!");
+			SetFailState("[Predicaments] Signature 'SetHealthBuffer' Broken!");
 		}
 		
 		StartPrepSDKCall(SDKCall_Player);
@@ -107,7 +117,7 @@ public void OnPluginStart()
 		hSHAdrenalineRush = EndPrepSDKCall();
 		if (hSHAdrenalineRush == null)
 		{
-			SetFailState("[SH] Signature 'OnAdrenalineUsed' Broken!");
+			SetFailState("[Predicaments] Signature 'OnAdrenalineUsed' Broken!");
 		}
 		
 		delete hSHGameData;
@@ -134,24 +144,24 @@ public void OnPluginStart()
 		cvarAdrenalineDuration.AddChangeHook(OnSHCVarsChanged);
 	}
 	
-	CreateConVar("self_help_version", PLUGIN_VERSION, "Self-Help (Reloaded) Version", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_DONTRECORD);
-	shEnable = CreateConVar("self_help_enable", "1", "Enable/Disable Plugin", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-	shUse = CreateConVar("self_help_use", "3", "Use: 0=None, 1=Pills And Adrenalines, 2=First Aid Kits Only, 3=Both", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 3.0);
-	shIncapPickup = CreateConVar("self_help_incap_pickup", "1", "Enable/Disable Item Pick-Ups While Incapacitated", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-        shDelay = CreateConVar("self_help_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
-        shKillAttacker = CreateConVar("self_help_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shStruggleMode = CreateConVar("self_help_struggle_mode", "2", "Pinned behavior: 0=disabled, 1=hold crouch to self-help, 2=mash crouch to struggle", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shStruggleGain = CreateConVar("self_help_struggle_gain", "5.0", "Percent gained per crouch press while struggling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
-        shStrugglePushback = CreateConVar("self_help_struggle_pushback", "2.5", "Percent lost per attacker sprint press", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
-        shStruggleEscapeEffect = CreateConVar("self_help_struggle_effect", "0", "On struggle escape: 0=nothing extra, 1=kill attacker, 2=knock both back", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
-        shBot = CreateConVar("self_help_bot", "1", "Enable/Disable Bot Self-Help", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
-        shBotChance = CreateConVar("self_help_bot_chance", "4", "Chance Of Bot Self-Helping: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
-        shHardHP = CreateConVar("self_help_hard_hp", "50", "Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
-	shTempHP = CreateConVar("self_help_temp_hp", "50.0", "Temporary Health Given After Self-Helping", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	CreateConVar("l4d2_predicaments_version", PLUGIN_VERSION, "L4D2 Predicaments Version", FCVAR_NOTIFY|FCVAR_SPONLY|FCVAR_DONTRECORD);
+	shEnable = CreateConVar("l4d2_predicament_enable", "1", "Enable/Disable Plugin", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+	shUse = CreateConVar("l4d2_predicament_use", "3", "Use: 0=None, 1=Pills And Adrenalines, 2=First Aid Kits Only, 3=Both", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 3.0);
+	shIncapPickup = CreateConVar("l4d2_predicament_incap_pickup", "1", "Enable/Disable Item Pick-Ups While Incapacitated", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+        shDelay = CreateConVar("l4d2_predicament_delay", "1.0", "Delay Before Plugin Mechanism Kicks In", FCVAR_NOTIFY|FCVAR_SPONLY);
+        shKillAttacker = CreateConVar("l4d2_predicament_kill_attacker", "2", "0=Unpin using gear 1=Unpin and kill attacker 2=Unpin disabled", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shStruggleMode = CreateConVar("l4d2_predicament_struggle_mode", "2", "Pinned behavior: 0=disabled, 1=hold crouch to revive, 2=mash crouch to struggle", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shStruggleGain = CreateConVar("l4d2_predicament_struggle_gain", "5.0", "Percent gained per crouch press while struggling", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
+        shStrugglePushback = CreateConVar("l4d2_predicament_struggle_pushback", "2.5", "Percent lost per attacker sprint press", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 100.0);
+        shStruggleEscapeEffect = CreateConVar("l4d2_predicament_struggle_effect", "0", "On struggle escape: 0=nothing extra, 1=kill attacker, 2=knock both back", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 2.0);
+        shBot = CreateConVar("l4d2_predicament_bot", "1", "Enable/Disable Bot Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 0.0, true, 1.0);
+        shBotChance = CreateConVar("l4d2_predicament_bot_chance", "4", "Chance Of Bot Revival: 1=Sometimes, 2=Often, 3=Seldom 4=Always", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0, true, 4.0);
+        shHardHP = CreateConVar("l4d2_predicament_hard_hp", "50", "Health Given After Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
+	shTempHP = CreateConVar("l4d2_predicament_temp_hp", "50.0", "Temporary Health Given After Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 1.0);
 	
 	if (bIsL4D)
 	{
-		shMaxCount = CreateConVar("self_help_max_count", "3", "Maximum Attempts of Self-Help", FCVAR_NOTIFY|FCVAR_SPONLY, true, 3.0);
+		shMaxCount = CreateConVar("l4d2_predicament_max_count", "3", "Maximum Attempts of Revival", FCVAR_NOTIFY|FCVAR_SPONLY, true, 3.0);
 		iMaxCount = shMaxCount.IntValue;
 		shMaxCount.AddChangeHook(OnSHCVarsChanged);
 	}
@@ -187,7 +197,7 @@ public void OnPluginStart()
         shHardHP.AddChangeHook(OnSHCVarsChanged);
         shTempHP.AddChangeHook(OnSHCVarsChanged);
 	
-	AutoExecConfig(true, "self_help");
+	AutoExecConfig(true, "l4d2_predicaments");
 	
 	HookEvent("round_start", OnRoundEvents);
 	HookEvent("round_end", OnRoundEvents);
@@ -225,6 +235,10 @@ public void OnPluginStart()
 	AddNormalSoundHook(OnSHSoundsFix);
 	
 	CreateTimer(0.1, RecordLastPosition, _, TIMER_REPEAT);
+	
+	// Create forwards for external plugins
+	g_hForwardCanHealOthers = CreateGlobalForward("Predicaments_OnCanHealOthers", ET_Hook, Param_Cell, Param_Cell, Param_CellByRef);
+	g_hForwardCanStruggle = CreateGlobalForward("Predicaments_OnCanStruggle", ET_Hook, Param_Cell, Param_CellByRef);
 }
 
 public void OnSHCVarsChanged(ConVar cvar, const char[] sOldValue, const char[] sNewValue)
@@ -863,6 +877,27 @@ public Action SHReviveOtherCompletion(Handle timer, Handle dpSHReviveOther)
 		return Plugin_Stop;
 	}
 	
+	// Check if the reviver can heal others using the forward
+	bool canHeal = true;
+	if (g_hForwardCanHealOthers != null)
+	{
+		Action result = Plugin_Continue;
+		Call_StartForward(g_hForwardCanHealOthers);
+		Call_PushCell(reviver);
+		Call_PushCell(revived);
+		Call_PushCellRef(canHeal);
+		Call_Finish(result);
+		
+		if ((result == Plugin_Handled || result == Plugin_Stop) && !canHeal)
+		{
+			RemoveSHProgressBar(reviver, true);
+			RemoveSHProgressBar(revived);
+			
+			fSelfHelpTime[reviver] = 0.0;
+			return Plugin_Stop;
+		}
+	}
+	
 	if (fSelfHelpTime[reviver] >= float(iReviveDuration) + 0.1)
 	{
 		RemoveSHProgressBar(reviver, true);
@@ -1370,6 +1405,22 @@ void HandleStruggle(int client, int &buttons)
                         if (iStruggleMode != 2)
                         {
                                 return;
+                        }
+                        
+                        // Check if the client can struggle using the forward
+                        bool canStruggle = true;
+                        if (g_hForwardCanStruggle != null)
+                        {
+                                Action result = Plugin_Continue;
+                                Call_StartForward(g_hForwardCanStruggle);
+                                Call_PushCell(client);
+                                Call_PushCellRef(canStruggle);
+                                Call_Finish(result);
+                                
+                                if ((result == Plugin_Handled || result == Plugin_Stop) && !canStruggle)
+                                {
+                                        return;
+                                }
                         }
 
                         if (fGameTime - fLastStruggleInput[client] > 1.0 && fStruggleProgress[client] > 0.0)
@@ -2950,4 +3001,89 @@ stock int C_ShowActivity2(int client, const char[] tag, const char[] format, any
 	}
 	
 	return 1;
+}
+
+/**
+ * Native implementations for external plugin hooks
+ */
+
+// Native: Predicaments_CanHealOthers
+// Checks if a client can heal another client
+// @param client - The client attempting to heal
+// @param target - The target being healed
+// @return - True if allowed, false otherwise
+public int Native_CanHealOthers(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	int target = GetNativeCell(2);
+	
+	bool canHeal = true;
+	
+	// Call the forward to allow other plugins to modify this decision
+	if (g_hForwardCanHealOthers != null)
+	{
+		Action result = Plugin_Continue;
+		Call_StartForward(g_hForwardCanHealOthers);
+		Call_PushCell(client);
+		Call_PushCell(target);
+		Call_PushCellRef(canHeal);
+		Call_Finish(result);
+		
+		if (result == Plugin_Handled || result == Plugin_Stop)
+		{
+			return canHeal;
+		}
+	}
+	
+	// Default behavior - allow healing if both players are valid and alive
+	if (!IsSurvivor(client) || !IsPlayerAlive(client))
+	{
+		canHeal = false;
+	}
+	
+	if (!IsSurvivor(target) || !IsPlayerAlive(target))
+	{
+		canHeal = false;
+	}
+	
+	return canHeal;
+}
+
+// Native: Predicaments_CanStruggle
+// Checks if a client can struggle when pinned by an infected
+// @param client - The client attempting to struggle
+// @return - True if allowed, false otherwise
+public int Native_CanStruggle(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	
+	bool canStruggle = true;
+	
+	// Call the forward to allow other plugins to modify this decision
+	if (g_hForwardCanStruggle != null)
+	{
+		Action result = Plugin_Continue;
+		Call_StartForward(g_hForwardCanStruggle);
+		Call_PushCell(client);
+		Call_PushCellRef(canStruggle);
+		Call_Finish(result);
+		
+		if (result == Plugin_Handled || result == Plugin_Stop)
+		{
+			return canStruggle;
+		}
+	}
+	
+	// Default behavior - allow struggling if player is valid, alive, and pinned
+	if (!IsSurvivor(client) || !IsPlayerAlive(client))
+	{
+		canStruggle = false;
+	}
+	
+	if (iAttacker[client] == 0)
+	{
+		canStruggle = false;
+	}
+	
+	return canStruggle;
 }
