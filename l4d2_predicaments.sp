@@ -49,7 +49,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 	EngineVersion evRetVal = GetEngineVersion();
 	if (evRetVal != Engine_Left4Dead && evRetVal != Engine_Left4Dead2)
 	{
-		strcopy(error, err_max, "[SH] Plugin Supports L4D And L4D2 Only!");
+		strcopy(error, err_max, "[Predicaments] Plugin Supports L4D And L4D2 Only!");
 		return APLRes_SilentFailure;
 	}
 	
